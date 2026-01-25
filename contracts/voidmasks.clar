@@ -1,138 +1,195 @@
-;; VOIDMASKS - SIP-009 NFT Contract
-;; On-chain SVG generation from token IDs
+;; VOIDMASKS - 100% On-Chain Schizocore PFPs
+;; SIP-009 Compliant NFT Contract
+;; Gas-optimized, permissionless, deterministic
 
-(define-constant ERR-NOT-AUTHORIZED u1)
-(define-constant ERR-NOT-FOUND u2)
-(define-constant ERR-ALREADY-MINTED u3)
+(define-non-fungible-token voidmask uint)
 
-;; SIP-009 REQUIRED FUNCTIONS
-(define-read-only (get-last-token-id)
-  (ok (default-to u0 (get last-token-id (map-get? token-state {id: u0})))))
+;; Constants
+(define-constant MAX-SUPPLY u10000)
+(define-constant CONTRACT-OWNER tx-sender)
 
-(define-read-only (get-token-uri (token-id uint)))
-  (ok (some (concat "data:image/svg+xml;base64," (generate-svg-base64 token-id))))
+(define-constant ERR-SOLD-OUT (err u100))
+(define-constant ERR-ALREADY-MINTED (err u101))
+(define-constant ERR-NOT-OWNER (err u403))
+(define-constant ERR-NOT-FOUND (err u404))
 
-(define-read-only (get-owner (token-id uint))
-  (match (map-get? token-owners {id: token-id})
-    owner (ok (some owner.owner))
-    (err ERR-NOT-FOUND)))
-
-(define-read-only (get-name)
-  (ok "VOIDMASKS"))
-
-(define-read-only (get-symbol)
-  (ok "VMASK"))
-
-(define-read-only (get-decimals)
-  (ok u0))
-
-;; CORE STATE
-(define-map token-owners
-  {id: uint}
-  {owner: principal})
-
-(define-map token-state
-  {id: uint}
-  {minted: bool})
-
-(define-data-var last-token-id uint u0)
+;; State
 (define-data-var total-supply uint u0)
+(define-map minted-wallets principal bool)
 
-;; MINT FUNCTION
-(define-public (mint)
-  (let ((new-id (+ (var-get last-token-id) u1)))
-    (asserts! (not (get minted (default-to {minted: true} (map-get? token-state {id: new-id}))))
-      (err ERR-ALREADY-MINTED))
-    
-    ;; Mint the token
-    (map-set token-owners {id: new-id} {owner: tx-sender})
-    (map-set token-state {id: new-id} {minted: true})
-    (var-set last-token-id new-id)
-    (var-set total-supply (+ (var-get total-supply) u1))
-    
-    (ok new-id)))
+;; ========================================
+;; SIP-009 REQUIRED FUNCTIONS
+;; ========================================
 
-;; TRANSFER FUNCTION (SIP-009)
+;; Get last token ID
+(define-read-only (get-last-token-id)
+  (ok (var-get total-supply))
+)
+
+;; Get token URI (on-chain SVG)
+(define-read-only (get-token-uri (token-id uint))
+  (ok (some (concat
+    "data:application/json;utf8,"
+    "{"
+      "\"name\":\"VOIDMASK #"
+        (uint-to-ascii token-id)
+      "\","
+      "\"description\":\"100% on-chain schizocore PFP on Stacks\","
+      "\"image\":\"data:image/svg+xml;utf8,"
+        (get-svg token-id)
+      "\""
+    "}"
+  )))
+)
+
+;; Get owner
+(define-read-only (get-owner (token-id uint))
+  (ok (nft-get-owner? voidmask token-id))
+)
+
+;; Transfer
 (define-public (transfer (token-id uint) (sender principal) (recipient principal))
   (begin
-    (asserts! (is-eq tx-sender sender) (err ERR-NOT-AUTHORIZED))
-    (asserts! (is-eq (get-owner-value token-id) sender) (err ERR-NOT-AUTHORIZED))
+    (asserts! (is-eq tx-sender sender) ERR-NOT-OWNER)
+    (nft-transfer? voidmask token-id sender recipient)
+  )
+)
+
+;; ========================================
+;; MINT FUNCTION (1 per wallet)
+;; ========================================
+
+(define-public (mint)
+  (let (
+    (supply (var-get total-supply))
+    (minter tx-sender)
+  )
+    ;; Check supply
+    (asserts! (< supply MAX-SUPPLY) ERR-SOLD-OUT)
     
-    (map-set token-owners {id: token-id} {owner: recipient})
-    (ok true)))
+    ;; Check if wallet already minted
+    (asserts! (is-none (map-get? minted-wallets minter)) ERR-ALREADY-MINTED)
+    
+    ;; Mint NFT
+    (try! (nft-mint? voidmask supply minter))
+    
+    ;; Update state
+    (var-set total-supply (+ supply u1))
+    (map-set minted-wallets minter true)
+    
+    (ok supply)
+  )
+)
 
-;; HELPER FUNCTIONS
-(define-read-only (get-owner-value (token-id uint))
-  (default-to 'ST000000000000000000002AMW42H (get owner 
-    (default-to {owner: 'ST000000000000000000002AMW42H} 
-      (map-get? token-owners {id: token-id})))))
+;; ========================================
+;; READ-ONLY FUNCTIONS
+;; ========================================
 
-(define-read-only (generate-svg-base64 (token-id uint))
-  ;; Base64 encoded SVG generation
-  (let ((svg-string (generate-svg token-id)))
-    ;; In practice, you'd encode to base64 here
-    ;; For demo purposes, returning raw SVG wrapped in data URI
-    (concat "data:image/svg+xml," svg-string)))
+;; Check if wallet minted
+(define-read-only (has-minted (wallet principal))
+  (default-to false (map-get? minted-wallets wallet))
+)
 
-(define-read-only (generate-svg (token-id uint))
-  ;; Deterministic SVG generation from token ID
-  (let ((seed (to-int token-id))
-        (bg-color (hash-color seed 0))
-        (shape-color (hash-color seed 1))
-        (pattern (hash-pattern seed)))
-    (concat 
-      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'>"
-      (concat "<rect width='400' height='400' fill='" bg-color "'/>")
-      (generate-shape pattern shape-color)
-      "</svg>")))
+;; Get total supply
+(define-read-only (get-total-supply)
+  (ok (var-get total-supply))
+)
 
-(define-read-only (hash-color (seed int) (offset int))
-  ;; Generate deterministic color from seed
-  (let ((hash-val (+ seed offset))
-        (r (mod (abs hash-val) 256))
-        (g (mod (abs (* hash-val 17)) 256))
-        (b (mod (abs (* hash-val 31)) 256)))
-    (concat "#" 
-      (concat (int-to-hex r) 
-        (concat (int-to-hex g) (int-to-hex b))))))
+;; ========================================
+;; ON-CHAIN SVG GENERATION
+;; ========================================
 
-(define-read-only (hash-pattern (seed int))
-  ;; Generate pattern type from seed
-  (mod (abs seed) 5))
+(define-read-only (trait (token-id uint) (mod uint))
+  (mod token-id mod)
+)
 
-(define-read-only (generate-shape (pattern int) (color string))
-  (if (is-eq pattern 0)
-    (concat "<circle cx='200' cy='200' r='100' fill='" color "' opacity='0.8'/>")
-    (if (is-eq pattern 1)
-      (concat "<polygon points='200,100 300,300 100,300' fill='" color "' opacity='0.8'/>")
-      (if (is-eq pattern 2)
-        (concat "<rect x='100' y='100' width='200' height='200' fill='" color "' opacity='0.8'/>")
-        (if (is-eq pattern 3)
-          (concat "<path d='M100,200 Q200,50 300,200 T100,200' fill='" color "' opacity='0.8'/>")
-          (concat "<ellipse cx='200' cy='200' rx='150' ry='80' fill='" color "' opacity='0.8'/>"))))))
+(define-read-only (get-svg (token-id uint))
+  (let (
+    (bg (trait token-id u8))
+    (color (trait (/ token-id u8) u8))
+    (eyes (trait (/ token-id u64) u4))
+    (mouth (trait (/ token-id u256) u4))
+    (antenna (trait (/ token-id u1024) u4))
+  )
+    (concat
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' shape-rendering='crispEdges'>"
+      (bg-layer bg)
+      (body-layer color)
+      (eyes-layer eyes)
+      (mouth-layer mouth)
+      (antenna-layer antenna)
+      "</svg>"
+    )
+  )
+)
 
-(define-read-only (int-to-hex (val int))
-  ;; Convert integer to 2-digit hex
-  (let ((hex-chars "0123456789ABCDEF")
-        (first-digit (get (mod (abs (/ val 16)) 16) hex-chars))
-        (second-digit (get (mod (abs val) 16) hex-chars)))
-    (concat first-digit second-digit)))
+;; SVG Layers
+(define-read-only (bg-layer (i uint))
+  (if (is-eq i u0) "<rect width='64' height='64' fill='#000'/>"
+  (if (is-eq i u1) "<rect width='64' height='64' fill='#111'/>"
+  (if (is-eq i u2) "<rect width='64' height='64' fill='#1a1a1a'/>"
+  (if (is-eq i u3) "<rect width='64' height='64' fill='#222'/>"
+  (if (is-eq i u4) "<rect width='64' height='64' fill='#2a2a2a'/>"
+  (if (is-eq i u5) "<rect width='64' height='64' fill='#300'/>"
+  (if (is-eq i u6) "<rect width='64' height='64' fill='#003'/>"
+    "<rect width='64' height='64' fill='#030'/>"
+  )))))))
+)
 
-;; SIP-009 BALANCE AND SUPPLY FUNCTIONS
-(define-read-only (balance-of (owner principal))
-  (ok (count-tokens-for-owner owner)))
+(define-read-only (body-layer (i uint))
+  (if (is-eq i u0) "<rect x='16' y='20' width='32' height='28' fill='#fff'/>"
+  (if (is-eq i u1) "<rect x='16' y='20' width='32' height='28' fill='#eee'/>"
+  (if (is-eq i u2) "<rect x='16' y='20' width='32' height='28' fill='#ccc'/>"
+  (if (is-eq i u3) "<rect x='16' y='20' width='32' height='28' fill='#f00'/>"
+  (if (is-eq i u4) "<rect x='16' y='20' width='32' height='28' fill='#0f0'/>"
+  (if (is-eq i u5) "<rect x='16' y='20' width='32' height='28' fill='#00f'/>"
+  (if (is-eq i u6) "<rect x='16' y='20' width='32' height='28' fill='#ff0'/>"
+    "<rect x='16' y='20' width='32' height='28' fill='#f0f'/>"
+  )))))))
+)
 
-(define-read-only (total-supply)
-  (ok (var-get total-supply)))
+(define-read-only (eyes-layer (i uint))
+  (if (is-eq i u0) "<rect x='22' y='28' width='4' height='4'/><rect x='38' y='28' width='4' height='4'/>"
+  (if (is-eq i u1) "<rect x='22' y='28' width='4' height='2'/><rect x='38' y='28' width='4' height='2'/>"
+  (if (is-eq i u2) "<rect x='22' y='28' width='4' height='4' fill='#f00'/><rect x='38' y='28' width='4' height='4' fill='#f00'/>"
+    "<rect x='22' y='28' width='2' height='4'/><rect x='38' y='28' width='2' height='4'/>"
+  )))
+)
 
-(define-read-only (count-tokens-for-owner (owner principal))
-  ;; Count tokens owned by principal
-  (let ((last-id (default-to u0 (get last-token-id (map-get? token-state {id: u0})))))
-    (count-owned-tokens owner u1 last-id u0)))
+(define-read-only (mouth-layer (i uint))
+  (if (is-eq i u0) ""
+  (if (is-eq i u1) "<rect x='28' y='36' width='8' height='2'/>"
+  (if (is-eq i u2) "<rect x='26' y='36' width='12' height='4'/>"
+    "<rect x='30' y='36' width='4' height='6'/>"
+  )))
+)
 
-(define-read-only (count-owned-tokens (owner principal) (current-id uint) (last-id uint) (count uint))
-  (if (> current-id last-id)
-    count
-    (let ((token-owner (get-owner-value current-id)))
-      (count-owned-tokens owner (+ current-id u1) last-id
-        (if (is-eq token-owner owner) (+ count u1) count)))))
+(define-read-only (antenna-layer (i uint))
+  (if (is-eq i u0) ""
+  (if (is-eq i u1) "<rect x='31' y='10' width='2' height='10'/>"
+  (if (is-eq i u2) "<rect x='20' y='12' width='2' height='8'/><rect x='42' y='12' width='2' height='8'/>"
+    "<rect x='31' y='8' width='2' height='12'/>"
+  )))
+)
+
+;; Helper: uint to ascii
+(define-read-only (uint-to-ascii (value uint))
+  (if (<= value u9)
+    (unwrap-panic (element-at "0123456789" value))
+    (get r (fold uint-to-ascii-iter 
+      0x00000000000000000000000000000000000000000000000000000000000000000000000000000000
+      {v: value, r: ""}))
+  )
+)
+
+(define-private (uint-to-ascii-iter (i (buff 1)) (d {v: uint, r: (string-ascii 40)}))
+  (if (> (get v d) u0)
+    {
+      v: (/ (get v d) u10),
+      r: (unwrap-panic (as-max-len? 
+        (concat (unwrap-panic (element-at "0123456789" (mod (get v d) u10))) (get r d))
+        u40))
+    }
+    d
+  )
+)

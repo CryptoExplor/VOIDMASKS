@@ -1,22 +1,29 @@
 {
   "name": "voidmasks",
   "version": "1.0.0",
-  "description": "SIP-009 NFT collection with on-chain SVG generation",
-  "main": "index.js",
+  "description": "100% On-Chain Schizocore PFPs on Stacks",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": ["stacks", "nft", "svg", "on-chain"],
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "vite": "^4.4.5"
-  },
   "dependencies": {
-    "@stacks/connect": "^7.7.1",
-    "@stacks/transactions": "^6.9.0",
-    "@stacks/blockchain-api-client": "^4.0.0"
-  }
+    "@stacks/transactions": "^6.13.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vite-plugin-node-polyfills": "^0.22.0"
+  },
+  "keywords": [
+    "stacks",
+    "nft",
+    "clarity",
+    "bitcoin",
+    "generative-art",
+    "schizocore",
+    "sip-009"
+  ],
+  "author": "CryptoExplorer",
+  "license": "MIT"
 }
