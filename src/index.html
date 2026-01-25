@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOIDMASKS - On-Chain NFT Collection</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>_VOIDmasks_</h1>
+            <p class="subtitle">SIP-009 NFT collection with on-chain SVG generation</p>
+        </header>
+
+        <div class="wallet-section">
+            <button id="connect-wallet" class="btn-primary">Connect Wallet</button>
+            <div id="wallet-info" class="wallet-info hidden">
+                <span id="wallet-address"></span>
+                <button id="disconnect-wallet" class="btn-secondary">Disconnect</button>
+            </div>
+        </div>
+
+        <div class="mint-section">
+            <h2>Mint Your Mask</h2>
+            <button id="mint-btn" class="btn-mint" disabled>Mint NFT</button>
+            <p class="price-info">Cost: 1 STX</p>
+        </div>
+
+        <div class="gallery-section">
+            <h2>Your Collection</h2>
+            <div id="collection-container" class="collection-grid">
+                <!-- Collection items will be rendered here -->
+            </div>
+        </div>
+
+        <div class="explorer-section">
+            <h2>Token Explorer</h2>
+            <div class="token-input">
+                <input type="number" id="token-id-input" placeholder="Enter Token ID" min="1">
+                <button id="view-token-btn" class="btn-secondary">View Token</button>
+            </div>
+            <div id="token-display" class="token-display hidden">
+                <!-- Token SVG will be displayed here -->
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with Stacks.js | SIP-009 Compliant | 100% On-Chain</p>
+        </footer>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

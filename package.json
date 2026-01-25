@@ -1,0 +1,22 @@
+{
+  "name": "voidmasks",
+  "version": "1.0.0",
+  "description": "SIP-009 NFT collection with on-chain SVG generation",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": ["stacks", "nft", "svg", "on-chain"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^4.4.5"
+  },
+  "dependencies": {
+    "@stacks/connect": "^7.7.1",
+    "@stacks/transactions": "^6.9.0",
+    "@stacks/blockchain-api-client": "^4.0.0"
+  }
+}
