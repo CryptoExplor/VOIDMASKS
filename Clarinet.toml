@@ -20,9 +20,16 @@ clarity_version = 4
 clarity_version = 4
 
 # --------------------------------------------------
-# Network definitions (used by Clarinet CLI only)
-# Hiro Platform ignores these but requires file validity
+# Network definitions
+# (Used by Clarinet CLI / devnet, ignored by Hiro Platform)
 # --------------------------------------------------
+
+[networks.devnet]
+stacks_node_rpc_address = "http://localhost:20443"
+stacks_node_events_address = "http://localhost:20443"
+bitcoin_node_rpc_address = "http://localhost:18443"
+bitcoin_node_rpc_username = ""
+bitcoin_node_rpc_password = ""
 
 [networks.testnet]
 stacks_node_rpc_address = "https://stacks-node-api.testnet.stacks.co"
