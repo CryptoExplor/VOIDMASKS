@@ -154,12 +154,16 @@ export async function mintNFT(senderAddress, provider) {
         // Determine network
         const network = CONFIG.NETWORK === 'mainnet' ? new StacksMainnet() : new StacksTestnet();
 
-        // Create post condition (require 1 STX payment)
-        const postCondition = makeStandardSTXPostCondition(
-            senderAddress,
-            FungibleConditionCode.Equal,
-            CONFIG.MINT_FEE
-        );
+        // Create post condition (if fee > 0)
+        let postConditions = [];
+        if (CONFIG.MINT_FEE > 0) {
+            const postCondition = makeStandardSTXPostCondition(
+                senderAddress,
+                FungibleConditionCode.Equal,
+                CONFIG.MINT_FEE
+            );
+            postConditions.push(postCondition);
+        }
 
         // Create contract call transaction
         const txOptions = {
@@ -172,7 +176,7 @@ export async function mintNFT(senderAddress, provider) {
             network: network,
             anchorMode: AnchorMode.Any,
             postConditionMode: PostConditionMode.Deny,
-            postConditions: [postCondition],
+            postConditions: postConditions,
             fee: 10000, // 0.01 STX fee
             nonce: undefined // Let wallet handle nonce
         };

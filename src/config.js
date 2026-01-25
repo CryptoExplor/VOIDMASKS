@@ -4,8 +4,8 @@ const NETWORKS = {
         NETWORK: 'testnet',
         CONTRACT_ADDRESS: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM',
         STACKS_API: 'https://api.testnet.hiro.so',
-        MINT_FEE: 250000000, // 250 STX
-        MIN_FEE_DISPLAY: '250 STX'
+        MINT_FEE: 0, // Free
+        MIN_FEE_DISPLAY: 'Free'
     },
     mainnet: {
         NETWORK: 'mainnet',
