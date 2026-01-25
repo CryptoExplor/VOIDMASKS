@@ -9,7 +9,7 @@ accounts:
     balance: 100000000000
 
 batches:
-  - id: voidmasks
+  - id: deploy-voidmasks
     transactions:
       - contract-publish:
           contract-name: voidmasks
