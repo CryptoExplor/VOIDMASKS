@@ -1,7 +1,7 @@
 // VOIDMASKS Configuration
 export const CONFIG = {
     // Network configuration
-    NETWORK: 'mainnet', // or 'testnet'
+    NETWORK: 'testnet', // or 'testnet'
 
     // Contract details
     CONTRACT_ADDRESS: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', // Replace with actual contract address

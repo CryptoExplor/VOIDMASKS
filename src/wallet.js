@@ -55,8 +55,13 @@ async function connectLeather() {
         if (response.result) {
             const addresses = response.result.addresses;
             // Get the Stacks address (not Bitcoin)
-            const stacksAddress = addresses.find(addr => addr.type === 'stacks');
-            const address = stacksAddress ? stacksAddress.address : addresses[0].address;
+            const stacksAddress = addresses.find(addr => addr.type === 'stacks' || addr.symbol === 'STX');
+
+            if (!stacksAddress) {
+                throw new Error('No Stacks address found. Please ensure you are connected to the Stacks network.');
+            }
+
+            const address = stacksAddress.address;
 
             walletState = {
                 isConnected: true,
@@ -94,7 +99,12 @@ async function connectXverse() {
         if (response && response.addresses) {
             // Get the Stacks address
             const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
-            const address = stacksAddr ? stacksAddr.address : response.addresses[0].address;
+
+            if (!stacksAddr) {
+                throw new Error('No Stacks address found in Xverse response.');
+            }
+
+            const address = stacksAddr.address;
 
             walletState = {
                 isConnected: true,
