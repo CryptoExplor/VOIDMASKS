@@ -1,0 +1,11 @@
+---
+id: voidmasks-testnet
+name: VOIDMASKS Testnet Deployment
+network: testnet
+stacks-node: https://stacks-node-api.testnet.stacks.co
+bitcoin-node: https://bitcoin-node-api.testnet.stacks.co
+
+contracts:
+  - name: voidmasks
+    path: contracts/voidmasks.clar
+    clarity-version: 4
