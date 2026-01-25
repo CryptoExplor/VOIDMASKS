@@ -1,0 +1,18 @@
+network: testnet
+
+stacks-node: https://stacks-node-api.testnet.stacks.co
+bitcoin-node: https://bitcoin-node-api.testnet.stacks.co
+
+accounts:
+  deployer:
+    address: ST3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG
+    balance: 100000000000
+
+batches:
+  - id: voidmasks
+    transactions:
+      - contract-publish:
+          contract-name: voidmasks
+          expected-sender: deployer
+          path: contracts/voidmasks.clar
+          clarity-version: 4
