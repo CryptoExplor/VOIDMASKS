@@ -1,0 +1,351 @@
+/* ========================================
+   VOIDMASKS - BRUTALIST SCHIZOCORE STYLES
+   ======================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --void: #000000;
+    --ghost: #ffffff;
+    --blood: #ff0000;
+    --toxic: #00ff00;
+    --static: #cccccc;
+    --border-width: 2px;
+    --spacing-xs: 8px;
+    --spacing-sm: 16px;
+    --spacing-md: 24px;
+    --spacing-lg: 32px;
+    --spacing-xl: 48px;
+}
+
+body {
+    font-family: 'Courier New', 'Courier', monospace;
+    background: var(--void);
+    color: var(--ghost);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--spacing-md);
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--ghost);
+}
+
+h1 {
+    font-size: 48px;
+    font-weight: bold;
+    letter-spacing: 4px;
+    margin-bottom: var(--spacing-xs);
+    text-transform: uppercase;
+}
+
+.subtitle {
+    font-size: 14px;
+    opacity: 0.7;
+    text-transform: lowercase;
+}
+
+h2 {
+    font-size: 24px;
+    margin-bottom: var(--spacing-md);
+    text-transform: lowercase;
+    border-bottom: var(--border-width) solid var(--ghost);
+    padding-bottom: var(--spacing-xs);
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+button {
+    font-family: 'Courier New', 'Courier', monospace;
+    font-size: 14px;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--void);
+    color: var(--ghost);
+    border: var(--border-width) solid var(--ghost);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--ghost);
+    color: var(--void);
+}
+
+.btn-secondary {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: transparent;
+    color: var(--ghost);
+    border: 1px solid var(--static);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--static);
+    color: var(--void);
+}
+
+.btn-mint {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: var(--blood);
+    color: var(--ghost);
+    border: var(--border-width) solid var(--blood);
+    font-size: 18px;
+}
+
+.btn-mint:hover:not(:disabled) {
+    background: var(--ghost);
+    color: var(--blood);
+    border-color: var(--ghost);
+}
+
+button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* ========================================
+   WALLET SECTION
+   ======================================== */
+
+.wallet-section {
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+}
+
+.wallet-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--toxic);
+    background: rgba(0, 255, 0, 0.05);
+}
+
+.wallet-info span {
+    font-weight: bold;
+    color: var(--toxic);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ========================================
+   MINT SECTION
+   ======================================== */
+
+.mint-section {
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--ghost);
+}
+
+.price-info {
+    text-align: center;
+    margin-top: var(--spacing-sm);
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+/* ========================================
+   GALLERY & COLLECTION
+   ======================================== */
+
+.gallery-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.collection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.token-card {
+    border: 1px solid var(--static);
+    padding: var(--spacing-sm);
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.token-card:hover {
+    border-color: var(--toxic);
+    transform: scale(1.02);
+}
+
+.token-svg {
+    width: 100%;
+    aspect-ratio: 1;
+    margin-bottom: var(--spacing-xs);
+}
+
+.token-svg svg {
+    width: 100%;
+    height: 100%;
+}
+
+.token-id {
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-xl);
+    opacity: 0.5;
+    font-style: italic;
+}
+
+/* ========================================
+   TOKEN EXPLORER
+   ======================================== */
+
+.explorer-section {
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--ghost);
+}
+
+.token-input {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.token-input input {
+    flex: 1;
+    padding: var(--spacing-sm);
+    background: var(--void);
+    color: var(--ghost);
+    border: var(--border-width) solid var(--ghost);
+    font-family: 'Courier New', 'Courier', monospace;
+    font-size: 16px;
+}
+
+.token-input input:focus {
+    outline: none;
+    border-color: var(--toxic);
+}
+
+.token-display {
+    margin-top: var(--spacing-md);
+}
+
+.token-viewer {
+    text-align: center;
+}
+
+.token-viewer h3 {
+    margin-bottom: var(--spacing-md);
+    font-size: 20px;
+}
+
+.token-svg-large {
+    max-width: 400px;
+    margin: 0 auto;
+    border: var(--border-width) solid var(--static);
+    padding: var(--spacing-md);
+}
+
+.token-svg-large svg {
+    width: 100%;
+    height: auto;
+}
+
+/* ========================================
+   LOADING STATES
+   ======================================== */
+
+.loading-indicator {
+    text-align: center;
+    padding: var(--spacing-md);
+    opacity: 0.7;
+}
+
+.loading-indicator::after {
+    content: '...';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}
+
+/* ========================================
+   FOOTER
+   ======================================== */
+
+footer {
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--ghost);
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.5;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 32px;
+        letter-spacing: 2px;
+    }
+    
+    .collection-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: var(--spacing-sm);
+    }
+    
+    .token-input {
+        flex-direction: column;
+    }
+    
+    .wallet-info {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: var(--spacing-sm);
+    }
+    
+    h1 {
+        font-size: 24px;
+    }
+    
+    .collection-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+}
