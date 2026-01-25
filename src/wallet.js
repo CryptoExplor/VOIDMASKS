@@ -41,26 +41,32 @@ export async function connectWallet() {
 // Connect to Leather wallet
 async function connectLeather() {
     const provider = window.LeatherProvider;
-    
+
     if (!provider) {
         throw new Error('Leather wallet not found');
     }
-    
+
     try {
-        const response = await provider.request('getAddresses');
-        
+        // Request Stacks addresses with network specification
+        const response = await provider.request('getAddresses', {
+            network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+        });
+
         if (response.result) {
             const addresses = response.result.addresses;
-            const address = addresses[0].address;
-            
+            // Get the Stacks address (not Bitcoin)
+            const stacksAddress = addresses.find(addr => addr.type === 'stacks');
+            const address = stacksAddress ? stacksAddress.address : addresses[0].address;
+
             walletState = {
                 isConnected: true,
                 address: address,
-                provider: 'leather'
+                provider: 'leather',
+                network: CONFIG.NETWORK
             };
-            
+
             updateUIState('connected', walletState);
-            console.log('Connected to Leather wallet:', address);
+            console.log(`Connected to Leather wallet (${CONFIG.NETWORK}):`, address);
         }
     } catch (error) {
         throw new Error(`Leather connection failed: ${error.message}`);
@@ -69,26 +75,36 @@ async function connectLeather() {
 
 // Connect to Xverse wallet
 async function connectXverse() {
-    const provider = window.XverseProviders.StacksProvider;
-    
+    const provider = window.XverseProviders?.StacksProvider;
+
     if (!provider) {
         throw new Error('Xverse wallet not found');
     }
-    
+
     try {
-        const response = await provider.getAddresses();
-        
+        // Request addresses with proper network configuration
+        const response = await provider.request('getAddresses', {
+            purposes: ['stacks'],
+            message: 'Connect to VOIDMASKS',
+            network: {
+                type: CONFIG.NETWORK === 'mainnet' ? 'Mainnet' : 'Testnet'
+            }
+        });
+
         if (response && response.addresses) {
-            const address = response.addresses[0].address;
-            
+            // Get the Stacks address
+            const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
+            const address = stacksAddr ? stacksAddr.address : response.addresses[0].address;
+
             walletState = {
                 isConnected: true,
                 address: address,
-                provider: 'xverse'
+                provider: 'xverse',
+                network: CONFIG.NETWORK
             };
-            
+
             updateUIState('connected', walletState);
-            console.log('Connected to Xverse wallet:', address);
+            console.log(`Connected to Xverse wallet (${CONFIG.NETWORK}):`, address);
         }
     } catch (error) {
         throw new Error(`Xverse connection failed: ${error.message}`);
@@ -102,7 +118,7 @@ export function disconnectWallet() {
         address: null,
         provider: null
     };
-    
+
     updateUIState('disconnected');
     console.log('Wallet disconnected');
 }
@@ -117,7 +133,7 @@ export async function executeMint() {
     if (!walletState.isConnected) {
         throw new Error('Wallet not connected');
     }
-    
+
     try {
         const result = await mintNFT(walletState.address, walletState.provider);
         return result;
@@ -131,7 +147,7 @@ export async function executeMint() {
 export async function signTransaction(tx, provider) {
     try {
         let signedTx;
-        
+
         if (provider === 'leather') {
             const response = await window.LeatherProvider.request('stx_signTransaction', {
                 tx: tx.serialize(),
@@ -142,7 +158,7 @@ export async function signTransaction(tx, provider) {
             const response = await window.XverseProviders.StacksProvider.signTransaction(tx);
             signedTx = response;
         }
-        
+
         // Broadcast transaction
         const broadcastResponse = await fetch(`${CONFIG.STACKS_API}/v2/transactions`, {
             method: 'POST',
@@ -151,11 +167,11 @@ export async function signTransaction(tx, provider) {
             },
             body: signedTx
         });
-        
+
         if (!broadcastResponse.ok) {
             throw new Error('Failed to broadcast transaction');
         }
-        
+
         const txId = await broadcastResponse.text();
         return txId;
     } catch (error) {
