@@ -13,8 +13,13 @@
     <div class="container">
         <header>
             <h1>_VOIDmasks_</h1>
-            <p class="subtitle">SIP-009 NFT collection with on-chain SVG generation</p>
-            <div id="network-badge" class="network-badge"></div>
+            <p class="subtitle"> on-chain NFT collection with <span class="clarity-highlight">Clarity 4</span>
+            </p>
+            <div class="network-controls">
+                <button id="network-badge" class="network-badge" title="Click to switch network"></button>
+                <a id="faucet-link" href="https://stacks-jar.vercel.app" target="_blank" class="faucet-link hidden">🚰
+                    Faucet</a>
+            </div>
         </header>
 
         <div class="wallet-section">
@@ -28,7 +33,7 @@
         <div class="mint-section">
             <h2>Mint Your Mask</h2>
             <button id="mint-btn" class="btn-mint" disabled>Mint NFT</button>
-            <p class="price-info">Cost: 1 STX</p>
+            <p class="price-info">Cost: <span id="mint-price">1 STX</span></p>
         </div>
 
         <div class="gallery-section">
@@ -50,7 +55,15 @@
         </div>
 
         <footer>
-            <p>Built with Stacks.js | SIP-009 Compliant | 100% On-Chain</p>
+            <p>
+                Built on <strong>Stacks</strong> • Secured by <strong>Bitcoin</strong><br>
+                Enhanced with <strong>Clarity 4</strong>
+            </p>
+            <p>
+                <a href="https://github.com/CryptoExplor/VOIDMASKS" target="_blank">GitHub</a> •
+                <a href="https://docs.stacks.co/whats-new/clarity-4-is-now-live" target="_blank">Clarity 4 Docs</a> •
+                <a href="https://stacks.co/" target="_blank">Stacks.co</a>
+            </p>
         </footer>
     </div>
 

@@ -3,7 +3,7 @@
 // State management & DOM interactions
 // ========================================
 
-import { CONFIG, utils } from './config.js';
+import { CONFIG, utils, toggleNetwork } from './config.js';
 import { getWalletState, executeMint } from './wallet.js';
 import { getTotalSupply, getTokensByOwner, getLastTokenId } from './contract.js';
 import { generateSVGFromTokenId, generatePreviewTokens } from './svg.js';
@@ -49,15 +49,29 @@ function setupEventListeners() {
         viewTokenBtn.addEventListener('click', handleViewToken);
     }
 
-    // Token input - view on Enter
-    const tokenInput = document.getElementById('token-id-input');
-    if (tokenInput) {
-        tokenInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleViewToken();
-            }
-        });
+    // Network switch
+    const networkBadge = document.getElementById('network-badge');
+    if (networkBadge) {
+        networkBadge.addEventListener('click', handleNetworkSwitch);
     }
+}
+
+// Handle network switch
+async function handleNetworkSwitch() {
+    const newNetwork = toggleNetwork();
+    console.log(`Switched to ${newNetwork}`);
+
+    // Disconnect wallet to fail-safe
+    const wallet = getWalletState();
+    if (wallet.isConnected) {
+        alert('Switching networks. Wallet will be disconnected.');
+        // We import disconnectWallet at top if possible, or just dispatch click
+        const disconnectBtn = document.getElementById('disconnect-wallet');
+        if (disconnectBtn) disconnectBtn.click();
+    }
+
+    updateNetworkBadge();
+    await refreshData();
 }
 
 // Update UI based on wallet state
@@ -273,6 +287,23 @@ function updateNetworkBadge() {
     if (!badge) return;
 
     const network = CONFIG.NETWORK;
-    badge.textContent = network === 'mainnet' ? '🟢 Mainnet' : '🟠 Testnet';
+    badge.innerHTML = network === 'mainnet' ? '🟢 Mainnet ⇄' : '🟠 Testnet ⇄';
     badge.className = `network-badge ${network}`;
+    badge.title = `Currently on ${network}. Click to switch.`;
+
+    // Handle Faucet Link Visibility in Header
+    const faucetLink = document.getElementById('faucet-link');
+    if (faucetLink) {
+        if (network === 'testnet') {
+            faucetLink.classList.remove('hidden');
+        } else {
+            faucetLink.classList.add('hidden');
+        }
+    }
+
+    // Update Mint Price Display
+    const priceDisplay = document.getElementById('mint-price');
+    if (priceDisplay) {
+        priceDisplay.textContent = CONFIG.MIN_FEE_DISPLAY;
+    }
 }

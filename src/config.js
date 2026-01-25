@@ -1,28 +1,31 @@
-// VOIDMASKS Configuration
+// Network presets
+const NETWORKS = {
+    testnet: {
+        NETWORK: 'testnet',
+        CONTRACT_ADDRESS: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM',
+        STACKS_API: 'https://api.testnet.hiro.so',
+        MINT_FEE: 250000000, // 250 STX
+        MIN_FEE_DISPLAY: '250 STX'
+    },
+    mainnet: {
+        NETWORK: 'mainnet',
+        CONTRACT_ADDRESS: 'SP1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', // Placeholder: Update with actual Mainnet address
+        STACKS_API: 'https://api.mainnet.hiro.so',
+        MINT_FEE: 0, // Free mint
+        MIN_FEE_DISPLAY: 'Free'
+    }
+};
+
+// Current active configuration (starts with testnet)
 export const CONFIG = {
-    // Network configuration
-    NETWORK: 'testnet', // or 'testnet'
+    ...NETWORKS.testnet,
 
-    // Contract details
-    CONTRACT_ADDRESS: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', // Replace with actual contract address
+    // Static settings
     CONTRACT_NAME: 'voidmasks',
-
-    // API endpoints
-    // STACKS_API: 'https://api.mainnet.hiro.so', // Mainnet API
-    STACKS_API: 'https://api.testnet.hiro.so', // Testnet API
-
-    // Transaction fees
-    MINT_FEE: 1000000, // 1 STX in microSTX
     GAS_LIMIT: 10000000,
-
-    // UI settings
-    REFRESH_INTERVAL: 30000, // 30 seconds
+    REFRESH_INTERVAL: 30000,
     MAX_TOKENS_DISPLAY: 50,
-
-    // Wallet providers
     SUPPORTED_WALLETS: ['leather', 'xverse'],
-
-    // Colors and themes
     BRAND_COLORS: {
         primary: '#00ff00',
         secondary: '#ff00ff',
@@ -30,6 +33,17 @@ export const CONFIG = {
         text: '#ffffff'
     }
 };
+
+// Toggle network function
+export function toggleNetwork() {
+    const newNetwork = CONFIG.NETWORK === 'testnet' ? 'mainnet' : 'testnet';
+    const settings = NETWORKS[newNetwork];
+
+    // Update mutable CONFIG object
+    Object.assign(CONFIG, settings);
+
+    return CONFIG.NETWORK;
+}
 
 // Utility functions
 export const utils = {
