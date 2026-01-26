@@ -2,14 +2,14 @@
 const NETWORKS = {
     testnet: {
         NETWORK: 'testnet',
-        CONTRACT_ADDRESS: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM',
+        CONTRACT_ADDRESS: 'ST3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG', // Fixed: Now matches deployment plan
         STACKS_API: 'https://api.testnet.hiro.so',
         MINT_FEE: 0, // Free
         MIN_FEE_DISPLAY: 'Free'
     },
     mainnet: {
         NETWORK: 'mainnet',
-        CONTRACT_ADDRESS: 'SP1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', // Placeholder: Update with actual Mainnet address
+        CONTRACT_ADDRESS: 'SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG', // Update with actual Mainnet address after deployment
         STACKS_API: 'https://api.mainnet.hiro.so',
         MINT_FEE: 0, // Free mint
         MIN_FEE_DISPLAY: 'Free'
