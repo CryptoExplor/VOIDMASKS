@@ -1,9 +1,4 @@
 ---
-id: 0
-name: VOIDMASKS Testnet Deployment
-network: testnet
-stacks-node: "https://api.testnet.hiro.so"
-bitcoin-node: "https://blockstream.info/testnet/api"
 plan:
   batches:
     - id: 0
@@ -11,7 +6,6 @@ plan:
         - contract-publish:
             contract-name: voidmasks
             expected-sender: ST3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG
-            cost: 125300
+            cost: 200000
             path: contracts/voidmasks.clar
-            anchor-block-only: true
             clarity-version: 4
