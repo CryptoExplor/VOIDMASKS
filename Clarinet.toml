@@ -3,6 +3,10 @@ name = "voidmasks"
 authors = ["CryptoExplor"]
 description = "VOIDMASKS — 100% on-chain schizocore SVG NFTs on Stacks"
 telemetry = false
+# Add requirements for the SIP-009 trait
+requirements = [
+    { contract_id = "SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait", clarity_version = 1 }
+]
 
 # --------------------------------------------------
 # Contracts
