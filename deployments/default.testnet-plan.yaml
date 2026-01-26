@@ -1,18 +1,17 @@
+---
+id: 0
+name: VOIDMASKS Testnet Deployment
 network: testnet
-
-stacks-node: https://stacks-node-api.testnet.stacks.co
-bitcoin-node: https://bitcoin-node-api.testnet.stacks.co
-
-accounts:
-  deployer:
-    address: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-    balance: 100000000000
-
-batches:
-  - id: deploy-voidmasks
-    transactions:
-      - contract-publish:
-          contract-name: voidmasks
-          expected-sender: deployer
-          path: contracts/voidmasks.clar
-          clarity-version: 4
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "https://blockstream.info/testnet/api"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: voidmasks
+            expected-sender: ST3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG
+            cost: 125300
+            path: contracts/voidmasks.clar
+            anchor-block-only: true
+            clarity-version: 4
