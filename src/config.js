@@ -2,7 +2,7 @@
 const NETWORKS = {
     testnet: {
         NETWORK: 'testnet',
-        CONTRACT_ADDRESS: 'ST3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG', // Fixed: Now matches deployment plan
+        CONTRACT_ADDRESS: 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ.voidmasks', // Fixed: Now matches deployment plan
         STACKS_API: 'https://api.testnet.hiro.so',
         MINT_FEE: 0, // Free
         MIN_FEE_DISPLAY: 'Free'
@@ -68,3 +68,4 @@ export const utils = {
         return `#${tokenId.toString().padStart(4, '0')}`;
     }
 };
+
