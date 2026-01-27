@@ -2,7 +2,14 @@ import { CONFIG } from './config.js';
 import { signTransaction } from './wallet.js';
 import { generateSVGFromTokenId } from './svg.js';
 import { STACKS_MAINNET, STACKS_TESTNET } from '@stacks/network';
-import { AnchorMode, PostConditionMode, makeContractCall } from '@stacks/transactions';
+import {
+    AnchorMode,
+    PostConditionMode,
+    makeContractCall,
+    standardPrincipalCV,
+    uintCV,
+    cvToHex
+} from '@stacks/transactions';
 
 // Parse contract address - it's in format "ADDRESS.CONTRACT_NAME"
 const parseContractAddress = () => {
@@ -58,7 +65,7 @@ export async function getOwnerOfToken(tokenId) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sender: 'SP000000000000000000002Q6VF78',
-                    arguments: [`u${tokenId}`]
+                    arguments: [cvToHex(uintCV(tokenId))]
                 })
             }
         );
@@ -86,7 +93,7 @@ export async function getTokenURI(tokenId) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sender: 'SP000000000000000000002Q6VF78',
-                    arguments: [`u${tokenId}`]
+                    arguments: [cvToHex(uintCV(tokenId))]
                 })
             }
         );
@@ -142,7 +149,7 @@ export async function getBalanceOf(owner) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sender: 'SP000000000000000000002Q6VF78',
-                    arguments: [owner]
+                    arguments: [cvToHex(standardPrincipalCV(owner))]
                 })
             }
         );
