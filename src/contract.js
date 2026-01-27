@@ -2,23 +2,44 @@ import { CONFIG } from './config.js';
 import { signTransaction } from './wallet.js';
 import { generateSVGFromTokenId } from './svg.js';
 
-// Contract address helper
-const getContractAddress = () => `${CONFIG.CONTRACT_ADDRESS}.${CONFIG.CONTRACT_NAME}`;
+// Parse contract address - it's in format "ADDRESS.CONTRACT_NAME"
+const parseContractAddress = () => {
+    const parts = CONFIG.CONTRACT_ADDRESS.split('.');
+    if (parts.length === 2) {
+        return {
+            address: parts[0],
+            name: parts[1]
+        };
+    }
+    return {
+        address: CONFIG.CONTRACT_ADDRESS,
+        name: CONFIG.CONTRACT_NAME
+    };
+};
 
 // Read-only contract calls
 export async function getTotalSupply() {
     try {
+        const { address, name } = parseContractAddress();
         const response = await fetch(
-            `${CONFIG.STACKS_API}/v2/contracts/call-read/${CONFIG.CONTRACT_ADDRESS}/${CONFIG.CONTRACT_NAME}/total-supply`,
+            `${CONFIG.STACKS_API}/v2/contracts/call-read/${address}/${name}/get-total-supply`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: 'SP000000000000000000002Q6VF78' })
+                body: JSON.stringify({ sender: 'SP000000000000000000002Q6VF78', arguments: [] })
             }
         );
 
         const result = await response.json();
-        return parseInt(result.result.replace('u', ''));
+        
+        // Handle (ok uint) response
+        if (result.result) {
+            const match = result.result.match(/\(ok u(\d+)\)/);
+            if (match) {
+                return parseInt(match[1]);
+            }
+        }
+        return 0;
     } catch (error) {
         console.error('Failed to get total supply:', error);
         return 0;
@@ -27,8 +48,9 @@ export async function getTotalSupply() {
 
 export async function getOwnerOfToken(tokenId) {
     try {
+        const { address, name } = parseContractAddress();
         const response = await fetch(
-            `${CONFIG.STACKS_API}/v2/contracts/call-read/${CONFIG.CONTRACT_ADDRESS}/${CONFIG.CONTRACT_NAME}/get-owner`,
+            `${CONFIG.STACKS_API}/v2/contracts/call-read/${address}/${name}/get-owner`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -40,11 +62,11 @@ export async function getOwnerOfToken(tokenId) {
         );
 
         const result = await response.json();
-        if (result.result.includes('none')) {
+        if (result.result && result.result.includes('none')) {
             return null;
         }
-        // Extract principal from (some principal)
-        const principalMatch = result.result.match(/\(([^)]+)\)/);
+        // Extract principal from (ok (some principal))
+        const principalMatch = result.result.match(/([S][TP][A-Z0-9]+)/);
         return principalMatch ? principalMatch[1] : null;
     } catch (error) {
         console.error('Failed to get token owner:', error);
@@ -54,8 +76,9 @@ export async function getOwnerOfToken(tokenId) {
 
 export async function getTokenURI(tokenId) {
     try {
+        const { address, name } = parseContractAddress();
         const response = await fetch(
-            `${CONFIG.STACKS_API}/v2/contracts/call-read/${CONFIG.CONTRACT_ADDRESS}/${CONFIG.CONTRACT_NAME}/get-token-uri`,
+            `${CONFIG.STACKS_API}/v2/contracts/call-read/${address}/${name}/get-token-uri`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -67,10 +90,10 @@ export async function getTokenURI(tokenId) {
         );
 
         const result = await response.json();
-        if (result.result.includes('none')) {
+        if (result.result && result.result.includes('none')) {
             return null;
         }
-        // Extract URI from (some "uri")
+        // Extract URI from response
         const uriMatch = result.result.match(/"([^"]+)"/);
         return uriMatch ? uriMatch[1] : null;
     } catch (error) {
@@ -81,17 +104,26 @@ export async function getTokenURI(tokenId) {
 
 export async function getLastTokenId() {
     try {
+        const { address, name } = parseContractAddress();
         const response = await fetch(
-            `${CONFIG.STACKS_API}/v2/contracts/call-read/${CONFIG.CONTRACT_ADDRESS}/${CONFIG.CONTRACT_NAME}/get-last-token-id`,
+            `${CONFIG.STACKS_API}/v2/contracts/call-read/${address}/${name}/get-last-token-id`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: 'SP000000000000000000002Q6VF78' })
+                body: JSON.stringify({ sender: 'SP000000000000000000002Q6VF78', arguments: [] })
             }
         );
 
         const result = await response.json();
-        return parseInt(result.result.replace('u', ''));
+        
+        // Handle (ok uint) response
+        if (result.result) {
+            const match = result.result.match(/\(ok u(\d+)\)/);
+            if (match) {
+                return parseInt(match[1]);
+            }
+        }
+        return 0;
     } catch (error) {
         console.error('Failed to get last token ID:', error);
         return 0;
@@ -100,8 +132,9 @@ export async function getLastTokenId() {
 
 export async function getBalanceOf(owner) {
     try {
+        const { address, name } = parseContractAddress();
         const response = await fetch(
-            `${CONFIG.STACKS_API}/v2/contracts/call-read/${CONFIG.CONTRACT_ADDRESS}/${CONFIG.CONTRACT_NAME}/balance-of`,
+            `${CONFIG.STACKS_API}/v2/contracts/call-read/${address}/${name}/get-balance`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -113,7 +146,15 @@ export async function getBalanceOf(owner) {
         );
 
         const result = await response.json();
-        return parseInt(result.result.replace('u', ''));
+        
+        // Handle (ok uint) response
+        if (result.result) {
+            const match = result.result.match(/\(ok u(\d+)\)/);
+            if (match) {
+                return parseInt(match[1]);
+            }
+        }
+        return 0;
     } catch (error) {
         console.error('Failed to get balance:', error);
         return 0;
@@ -144,45 +185,48 @@ export async function getTokensByOwner(owner) {
     }
 }
 
-// Mint NFT transaction
+// Mint NFT transaction - FIXED VERSION
 export async function mintNFT(senderAddress, provider) {
     try {
-        // Import Stacks.js libraries dynamically to avoid bundling issues
-        const { makeContractCall, AnchorMode, PostConditionMode, FungibleConditionCode,
-            makeStandardSTXPostCondition, StacksMainnet, StacksTestnet } = await import('@stacks/transactions');
+        // Import Stacks.js libraries
+        const {
+            makeContractCall,
+            AnchorMode,
+            PostConditionMode,
+            StacksTestnet,
+            StacksMainnet
+        } = await import('@stacks/transactions');
+
+        // Parse contract address
+        const { address, name } = parseContractAddress();
 
         // Determine network
-        const network = CONFIG.NETWORK === 'mainnet' ? new StacksMainnet() : new StacksTestnet();
+        const network = CONFIG.NETWORK === 'mainnet' 
+            ? new StacksMainnet() 
+            : new StacksTestnet();
 
-        // Create post condition (if fee > 0)
-        let postConditions = [];
-        if (CONFIG.MINT_FEE > 0) {
-            const postCondition = makeStandardSTXPostCondition(
-                senderAddress,
-                FungibleConditionCode.Equal,
-                CONFIG.MINT_FEE
-            );
-            postConditions.push(postCondition);
-        }
+        console.log('Minting on network:', CONFIG.NETWORK);
+        console.log('Contract:', address, name);
+        console.log('Sender:', senderAddress);
 
         // Create contract call transaction
         const txOptions = {
-            contractAddress: CONFIG.CONTRACT_ADDRESS,
-            contractName: CONFIG.CONTRACT_NAME,
+            contractAddress: address,
+            contractName: name,
             functionName: 'mint',
             functionArgs: [],
-            senderKey: '', // Will be signed by wallet
-            validateWithAbi: false,
             network: network,
             anchorMode: AnchorMode.Any,
-            postConditionMode: PostConditionMode.Deny,
-            postConditions: postConditions,
-            fee: 10000, // 0.01 STX fee
-            nonce: undefined // Let wallet handle nonce
+            postConditionMode: PostConditionMode.Allow, // Allow for testing
+            fee: 200000, // 0.2 STX fee - increased for reliability
         };
+
+        console.log('Transaction options:', txOptions);
 
         // Create unsigned transaction
         const transaction = await makeContractCall(txOptions);
+
+        console.log('Transaction created, signing...');
 
         // Sign and broadcast transaction
         const txId = await signTransaction(transaction, provider);
@@ -196,6 +240,7 @@ export async function mintNFT(senderAddress, provider) {
         };
     } catch (error) {
         console.error('Mint transaction failed:', error);
+        console.error('Error stack:', error.stack);
         throw new Error(`Mint failed: ${error.message}`);
     }
 }
