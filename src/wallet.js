@@ -153,93 +153,152 @@ export async function executeMint() {
     }
 }
 
-// Sign and broadcast transaction - FIXED VERSION
+// Sign and broadcast transaction - COMPLETELY REWRITTEN
 export async function signTransaction(transaction, provider) {
     try {
-        console.log('Signing transaction with provider:', provider);
+        console.log('=== SIGNING TRANSACTION ===');
+        console.log('Provider:', provider);
+        console.log('Transaction:', transaction);
 
         if (provider === 'leather') {
-            // Leather wallet signing
-            const { bytesToHex } = await import('@stacks/common');
-            
-            const txHex = bytesToHex(transaction.serialize());
-            
-            console.log('Requesting signature from Leather...');
-            
-            const response = await window.LeatherProvider.request('stx_signTransaction', {
-                txHex: txHex,
-                network: CONFIG.NETWORK
-            });
-
-            if (!response || !response.result) {
-                throw new Error('No response from wallet');
-            }
-
-            console.log('Transaction signed, broadcasting...');
-            
-            // Broadcast the signed transaction
-            const signedTxHex = response.result.txHex || response.result;
-            
-            const broadcastResponse = await fetch(`${CONFIG.STACKS_API}/v2/transactions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/octet-stream'
-                },
-                body: hexToBytes(signedTxHex)
-            });
-
-            if (!broadcastResponse.ok) {
-                const errorText = await broadcastResponse.text();
-                console.error('Broadcast error:', errorText);
-                throw new Error(`Failed to broadcast transaction: ${errorText}`);
-            }
-
-            const txId = await broadcastResponse.text();
-            const cleanTxId = txId.replace(/"/g, '');
-            
-            console.log('Transaction broadcast successful:', cleanTxId);
-            return cleanTxId;
-
+            return await signWithLeather(transaction);
         } else if (provider === 'xverse') {
-            // Xverse wallet signing
-            console.log('Requesting signature from Xverse...');
-            
-            const response = await window.XverseProviders.StacksProvider.request('stx_signTransaction', {
-                transaction: transaction,
-                network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
-            });
-
-            if (!response || !response.result) {
-                throw new Error('No response from wallet');
-            }
-
-            console.log('Transaction signed by Xverse');
-            
-            const txId = response.result.txid || response.result.txId;
-            
-            if (!txId) {
-                // If no txId in response, it might have been broadcast already
-                console.log('No txId in response, transaction might be auto-broadcast');
-                return 'pending';
-            }
-
-            return txId;
+            return await signWithXverse(transaction);
+        } else {
+            throw new Error(`Unsupported provider: ${provider}`);
         }
 
-        throw new Error('Unsupported wallet provider');
-
     } catch (error) {
-        console.error('Transaction signing error:', error);
-        console.error('Error details:', error.message);
+        console.error('=== SIGNING ERROR ===');
+        console.error('Error:', error);
+        console.error('Stack:', error.stack);
         throw new Error(`Transaction signing failed: ${error.message}`);
     }
 }
 
-// Helper function to convert hex string to Uint8Array
+// Sign with Leather wallet
+async function signWithLeather(transaction) {
+    try {
+        console.log('Signing with Leather...');
+
+        // Import common utilities
+        const { bytesToHex } = await import('@stacks/common');
+        
+        // Serialize transaction to hex
+        const txBytes = transaction.serialize();
+        const txHex = bytesToHex(txBytes);
+        
+        console.log('Transaction serialized to hex');
+        console.log('Hex length:', txHex.length);
+
+        // Request signature from Leather
+        const response = await window.LeatherProvider.request('stx_signTransaction', {
+            txHex: txHex,
+            network: CONFIG.NETWORK
+        });
+
+        console.log('Leather response:', response);
+
+        if (!response || !response.result) {
+            throw new Error('No response from Leather wallet');
+        }
+
+        // Get signed transaction hex
+        const signedTxHex = response.result.txHex || response.result;
+        
+        console.log('Got signed transaction, broadcasting...');
+
+        // Broadcast the transaction
+        const txId = await broadcastTransaction(signedTxHex);
+        
+        console.log('Broadcast successful, txId:', txId);
+        
+        return txId;
+
+    } catch (error) {
+        console.error('Leather signing error:', error);
+        throw error;
+    }
+}
+
+// Sign with Xverse wallet
+async function signWithXverse(transaction) {
+    try {
+        console.log('Signing with Xverse...');
+
+        // Xverse handles signing and broadcasting internally
+        const response = await window.XverseProviders.StacksProvider.request('stx_signTransaction', {
+            transaction: transaction,
+            network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+        });
+
+        console.log('Xverse response:', response);
+
+        if (!response || !response.result) {
+            throw new Error('No response from Xverse wallet');
+        }
+
+        // Xverse typically returns the txId directly after broadcasting
+        const txId = response.result.txid || response.result.txId || response.result;
+        
+        console.log('Transaction signed and broadcast by Xverse, txId:', txId);
+        
+        return txId;
+
+    } catch (error) {
+        console.error('Xverse signing error:', error);
+        throw error;
+    }
+}
+
+// Broadcast transaction to the network
+async function broadcastTransaction(txHex) {
+    try {
+        console.log('Broadcasting transaction...');
+        console.log('API endpoint:', `${CONFIG.STACKS_API}/v2/transactions`);
+
+        // Convert hex to bytes
+        const txBytes = hexToBytes(txHex);
+        
+        const response = await fetch(`${CONFIG.STACKS_API}/v2/transactions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/octet-stream'
+            },
+            body: txBytes
+        });
+
+        console.log('Broadcast response status:', response.status);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Broadcast error response:', errorText);
+            throw new Error(`Broadcast failed: ${errorText}`);
+        }
+
+        const txId = await response.text();
+        // Remove quotes if present
+        const cleanTxId = txId.replace(/"/g, '').trim();
+        
+        console.log('Transaction broadcast successful');
+        console.log('Transaction ID:', cleanTxId);
+        
+        return cleanTxId;
+
+    } catch (error) {
+        console.error('Broadcast error:', error);
+        throw error;
+    }
+}
+
+// Helper: Convert hex string to Uint8Array
 function hexToBytes(hex) {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < hex.length; i += 2) {
-        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    // Remove any 0x prefix
+    const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
+    
+    const bytes = new Uint8Array(cleanHex.length / 2);
+    for (let i = 0; i < cleanHex.length; i += 2) {
+        bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
     }
     return bytes;
 }
