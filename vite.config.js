@@ -33,7 +33,7 @@ export default defineConfig({
     host: true
   },
   optimizeDeps: {
-    include: ['@stacks/transactions', '@stacks/common'],
+    include: ['@stacks/transactions', '@stacks/common', '@stacks/network'],
     esbuildOptions: {
       define: {
         global: 'globalThis'
