@@ -1,6 +1,7 @@
 import { CONFIG, utils } from './config.js';
 import { updateUIState } from './ui.js';
 import { mintNFT } from './contract.js';
+import { bytesToHex } from '@stacks/common';
 
 // Global wallet state
 let walletState = {
@@ -234,11 +235,8 @@ export async function signTransaction(transaction, provider) {
 async function signWithLeather(transaction) {
     try {
         console.log('Signing with Leather...');
-
-        // Import common utilities
-        const { bytesToHex } = await import('@stacks/common');
         
-        // Serialize transaction to hex
+        // Serialize transaction to hex - using statically imported bytesToHex
         const txBytes = transaction.serialize();
         const txHex = bytesToHex(txBytes);
         
