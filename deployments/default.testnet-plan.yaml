@@ -1,12 +1,29 @@
 ---
+id: 0
+name: Testnet deployment
 network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
 plan:
   batches:
     - id: 0
       transactions:
+        - requirement-publish:
+            contract-id: SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait
+            remap-sender: ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ
+            remap-principals:
+              SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9: ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ
+            cost: 4680
+            path: "./.cache/requirements/SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.clar"
+            clarity-version: 1
+      epoch: "2.0"
+    - id: 1
+      transactions:
         - contract-publish:
             contract-name: voidmasks
-            expected-sender: ST3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG
-            cost: 200000
+            expected-sender: ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ
+            cost: 60270
             path: contracts/voidmasks.clar
+            anchor-block-only: true
             clarity-version: 4
+      epoch: "3.3"
