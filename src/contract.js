@@ -2,6 +2,9 @@ import { CONFIG } from './config.js';
 import { signTransaction } from './wallet.js';
 import { generateSVGFromTokenId } from './svg.js';
 
+// This version will be imported but wrapped differently
+import * as StacksTransactions from '@stacks/transactions';
+
 // Parse contract address - it's in format "ADDRESS.CONTRACT_NAME"
 const parseContractAddress = () => {
     const parts = CONFIG.CONTRACT_ADDRESS.split('.');
@@ -185,42 +188,35 @@ export async function getTokensByOwner(owner) {
     }
 }
 
-// Mint NFT transaction - FIXED WITH PROPER IMPORTS
+// Mint NFT transaction - NAMESPACE IMPORT VERSION
 export async function mintNFT(senderAddress, provider) {
     try {
         console.log('Starting mint process...');
         console.log('Sender:', senderAddress);
         console.log('Provider:', provider);
         console.log('Network:', CONFIG.NETWORK);
-
-        // Import the module - getting the actual exports
-        const module = await import('@stacks/transactions');
         
-        // Access the actual exported classes/functions
-        const makeContractCall = module.makeContractCall || module.default?.makeContractCall;
-        const StacksTestnet = module.StacksTestnet || module.default?.StacksTestnet;
-        const StacksMainnet = module.StacksMainnet || module.default?.StacksMainnet;
-        const AnchorMode = module.AnchorMode || module.default?.AnchorMode;
-        const PostConditionMode = module.PostConditionMode || module.default?.PostConditionMode;
-        
-        console.log('Loaded @stacks/transactions module');
-        console.log('makeContractCall type:', typeof makeContractCall);
-        console.log('StacksTestnet type:', typeof StacksTestnet);
+        // Log what we imported
+        console.log('StacksTransactions namespace:', StacksTransactions);
+        console.log('Available exports:', Object.keys(StacksTransactions));
 
         // Parse contract address
         const { address, name } = parseContractAddress();
         console.log('Contract address:', address);
         console.log('Contract name:', name);
 
-        // Create network instance based on config
-        let network;
-        if (CONFIG.NETWORK === 'mainnet') {
-            network = new StacksMainnet();
-        } else {
-            network = new StacksTestnet();
-        }
+        // Access constructors from namespace
+        const NetworkClass = CONFIG.NETWORK === 'mainnet' 
+            ? StacksTransactions.StacksMainnet 
+            : StacksTransactions.StacksTestnet;
+            
+        console.log('NetworkClass:', NetworkClass);
+        console.log('NetworkClass type:', typeof NetworkClass);
 
+        // Create network instance
+        const network = new NetworkClass();
         console.log('Network created:', network);
+        console.log('Network constructor:', network.constructor.name);
 
         // Build transaction options
         const txOptions = {
@@ -229,23 +225,26 @@ export async function mintNFT(senderAddress, provider) {
             functionName: 'mint',
             functionArgs: [],
             network: network,
-            anchorMode: AnchorMode.Any,
-            postConditionMode: PostConditionMode.Allow,
-            fee: BigInt(200000), // Explicitly use BigInt constructor
+            anchorMode: StacksTransactions.AnchorMode.Any,
+            postConditionMode: StacksTransactions.PostConditionMode.Allow,
+            fee: BigInt(200000),
         };
 
-        console.log('Transaction options prepared:', txOptions);
+        console.log('Transaction options prepared');
 
         // Create the unsigned transaction
-        const transaction = await makeContractCall(txOptions);
+        console.log('Calling makeContractCall...');
+        console.log('makeContractCall type:', typeof StacksTransactions.makeContractCall);
+        
+        const transaction = await StacksTransactions.makeContractCall(txOptions);
 
-        console.log('Unsigned transaction created');
-        console.log('Transaction type:', typeof transaction);
+        console.log('✅ Unsigned transaction created');
+        console.log('Transaction:', transaction);
 
         // Sign and broadcast
         const txId = await signTransaction(transaction, provider);
 
-        console.log('Transaction signed and broadcast, txId:', txId);
+        console.log('✅ Transaction signed and broadcast, txId:', txId);
 
         return {
             success: true,
@@ -258,7 +257,17 @@ export async function mintNFT(senderAddress, provider) {
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
         console.error('Error name:', error.name);
+        console.error('Error constructor:', error.constructor?.name);
         console.error('Full error:', error);
+        
+        // Try to give more specific error info
+        if (error.message.includes('not a constructor')) {
+            console.error('CONSTRUCTOR ERROR DETAILS:');
+            console.error('- StacksTestnet type:', typeof StacksTransactions.StacksTestnet);
+            console.error('- StacksMainnet type:', typeof StacksTransactions.StacksMainnet);
+            console.error('- Available on namespace:', Object.keys(StacksTransactions));
+        }
+        
         throw new Error(`Mint failed: ${error.message}`);
     }
 }
