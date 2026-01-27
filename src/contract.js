@@ -1,13 +1,6 @@
 import { CONFIG } from './config.js';
 import { signTransaction } from './wallet.js';
 import { generateSVGFromTokenId } from './svg.js';
-import {
-    makeContractCall,
-    AnchorMode,
-    PostConditionMode,
-    StacksTestnet,
-    StacksMainnet,
-} from '@stacks/transactions';
 
 // Parse contract address - it's in format "ADDRESS.CONTRACT_NAME"
 const parseContractAddress = () => {
@@ -38,7 +31,7 @@ export async function getTotalSupply() {
         );
 
         const result = await response.json();
-        
+
         // Handle (ok uint) response
         if (result.result) {
             const match = result.result.match(/\(ok u(\d+)\)/);
@@ -122,7 +115,7 @@ export async function getLastTokenId() {
         );
 
         const result = await response.json();
-        
+
         // Handle (ok uint) response
         if (result.result) {
             const match = result.result.match(/\(ok u(\d+)\)/);
@@ -153,7 +146,7 @@ export async function getBalanceOf(owner) {
         );
 
         const result = await response.json();
-        
+
         // Handle (ok uint) response
         if (result.result) {
             const match = result.result.match(/\(ok u(\d+)\)/);
@@ -192,7 +185,7 @@ export async function getTokensByOwner(owner) {
     }
 }
 
-// Mint NFT transaction - STATIC IMPORTS VERSION
+// Mint NFT transaction - FIXED WITH PROPER IMPORTS
 export async function mintNFT(senderAddress, provider) {
     try {
         console.log('Starting mint process...');
@@ -200,12 +193,29 @@ export async function mintNFT(senderAddress, provider) {
         console.log('Provider:', provider);
         console.log('Network:', CONFIG.NETWORK);
 
+        // Import the modules
+        const txModule = await import('@stacks/transactions');
+        const networkModule = await import('@stacks/network');
+
+        // Access the actual exported classes/functions
+        const makeContractCall = txModule.makeContractCall || txModule.default?.makeContractCall;
+        const AnchorMode = txModule.AnchorMode || txModule.default?.AnchorMode;
+        const PostConditionMode = txModule.PostConditionMode || txModule.default?.PostConditionMode;
+
+        // Network classes come from @stacks/network now
+        const StacksTestnet = networkModule.StacksTestnet || networkModule.default?.StacksTestnet;
+        const StacksMainnet = networkModule.StacksMainnet || networkModule.default?.StacksMainnet;
+
+        console.log('Loaded modules');
+        console.log('makeContractCall type:', typeof makeContractCall);
+        console.log('StacksTestnet type:', typeof StacksTestnet);
+
         // Parse contract address
         const { address, name } = parseContractAddress();
         console.log('Contract address:', address);
         console.log('Contract name:', name);
 
-        // Create network instance - using statically imported constructors
+        // Create network instance based on config
         let network;
         if (CONFIG.NETWORK === 'mainnet') {
             network = new StacksMainnet();
@@ -214,7 +224,6 @@ export async function mintNFT(senderAddress, provider) {
         }
 
         console.log('Network created:', network);
-        console.log('Network type:', network.constructor.name);
 
         // Build transaction options
         const txOptions = {
@@ -225,13 +234,12 @@ export async function mintNFT(senderAddress, provider) {
             network: network,
             anchorMode: AnchorMode.Any,
             postConditionMode: PostConditionMode.Allow,
-            fee: BigInt(200000),
+            fee: BigInt(200000), // Explicitly use BigInt constructor
         };
 
-        console.log('Transaction options prepared');
+        console.log('Transaction options prepared:', txOptions);
 
         // Create the unsigned transaction
-        console.log('Calling makeContractCall...');
         const transaction = await makeContractCall(txOptions);
 
         console.log('Unsigned transaction created');
