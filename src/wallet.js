@@ -9,6 +9,57 @@ let walletState = {
     provider: null
 };
 
+// Storage keys
+const STORAGE_KEYS = {
+    WALLET_STATE: 'voidmasks_wallet_state',
+    NETWORK: 'voidmasks_network'
+};
+
+// Load wallet state from localStorage
+function loadWalletState() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEYS.WALLET_STATE);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            // Only restore if network matches
+            if (parsed.network === CONFIG.NETWORK) {
+                return parsed;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load wallet state:', error);
+    }
+    return null;
+}
+
+// Save wallet state to localStorage
+function saveWalletState() {
+    try {
+        localStorage.setItem(STORAGE_KEYS.WALLET_STATE, JSON.stringify(walletState));
+    } catch (error) {
+        console.error('Failed to save wallet state:', error);
+    }
+}
+
+// Clear wallet state from localStorage
+function clearWalletState() {
+    try {
+        localStorage.removeItem(STORAGE_KEYS.WALLET_STATE);
+    } catch (error) {
+        console.error('Failed to clear wallet state:', error);
+    }
+}
+
+// Initialize wallet on page load
+export function initializeWallet() {
+    const savedState = loadWalletState();
+    if (savedState && savedState.isConnected) {
+        walletState = savedState;
+        updateUIState('connected', walletState);
+        console.log('Restored wallet connection:', walletState.address);
+    }
+}
+
 // Check if wallet is installed
 export function isWalletInstalled(walletType) {
     switch (walletType) {
@@ -70,6 +121,7 @@ async function connectLeather() {
                 network: CONFIG.NETWORK
             };
 
+            saveWalletState(); // Save to localStorage
             updateUIState('connected', walletState);
             console.log(`Connected to Leather wallet (${CONFIG.NETWORK}):`, address);
         }
@@ -113,6 +165,7 @@ async function connectXverse() {
                 network: CONFIG.NETWORK
             };
 
+            saveWalletState(); // Save to localStorage
             updateUIState('connected', walletState);
             console.log(`Connected to Xverse wallet (${CONFIG.NETWORK}):`, address);
         }
@@ -129,6 +182,7 @@ export function disconnectWallet() {
         provider: null
     };
 
+    clearWalletState(); // Clear from localStorage
     updateUIState('disconnected');
     console.log('Wallet disconnected');
 }
