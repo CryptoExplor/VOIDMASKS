@@ -142,7 +142,7 @@ export async function getBalanceOf(owner) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sender: 'SP000000000000000000002Q6VF78',
-                    arguments: [`'${owner}`]
+                    arguments: [owner]
                 })
             }
         );
@@ -222,7 +222,6 @@ export async function mintNFT(senderAddress, provider) {
             anchorMode: AnchorMode.Any,
             postConditionMode: PostConditionMode.Allow,
             postConditions: [],
-            fee: 200000,
         };
 
         console.log('Transaction options prepared:', txOptions);
