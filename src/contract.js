@@ -154,8 +154,14 @@ export async function mintNFT(senderAddress, provider) {
       contractAddress: address,
       contractName: name,
       functionName: 'mint',
-      functionArgs: [],          // MUST exist
-      postConditions: [],        // MUST exist
+
+      // 🔑 REQUIRED — DO NOT REMOVE
+      senderAddress: senderAddress,
+
+      // 🔑 REQUIRED — MUST EXIST
+      functionArgs: [],
+      postConditions: [],
+
       network,
       anchorMode: AnchorMode.Any,
       postConditionMode: PostConditionMode.Allow,
@@ -165,10 +171,7 @@ export async function mintNFT(senderAddress, provider) {
 
     const txId = await signTransaction(transaction, provider);
 
-    return {
-      success: true,
-      txId,
-    };
+    return { success: true, txId };
   } catch (error) {
     console.error('MINT FAILED:', error);
     throw new Error(`Mint failed: ${error.message}`);
@@ -211,3 +214,4 @@ export async function waitForTransaction(txId, maxAttempts = 30) {
 
   return { confirmed: false, timeout: true };
 }
+
