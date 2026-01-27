@@ -1,5 +1,6 @@
 import { CONFIG, utils } from './config.js';
 import { updateUIState } from './ui.js';
+import { mintNFT } from './contract.js';
 
 // Global wallet state
 let walletState = {
@@ -137,109 +138,108 @@ export function getWalletState() {
     return { ...walletState };
 }
 
-// Execute mint transaction - SIMPLIFIED VERSION
+// Execute mint transaction
 export async function executeMint() {
     if (!walletState.isConnected) {
         throw new Error('Wallet not connected');
     }
 
     try {
-        console.log('Starting mint transaction...');
-        console.log('Wallet provider:', walletState.provider);
-        console.log('Network:', CONFIG.NETWORK);
+        const result = await mintNFT(walletState.address, walletState.provider);
+        return result;
+    } catch (error) {
+        console.error('Mint transaction failed:', error);
+        throw error;
+    }
+}
 
-        // Import Stacks.js
-        const {
-            makeContractCall,
-            AnchorMode,
-            PostConditionMode,
-            StacksTestnet,
-            StacksMainnet,
-            broadcastTransaction
-        } = await import('@stacks/transactions');
+// Sign and broadcast transaction - FIXED VERSION
+export async function signTransaction(transaction, provider) {
+    try {
+        console.log('Signing transaction with provider:', provider);
 
-        // Determine network
-        const network = CONFIG.NETWORK === 'mainnet' 
-            ? new StacksMainnet() 
-            : new StacksTestnet();
-
-        // Create transaction options
-        const txOptions = {
-            contractAddress: CONFIG.CONTRACT_ADDRESS,
-            contractName: CONFIG.CONTRACT_NAME,
-            functionName: 'mint',
-            functionArgs: [],
-            network: network,
-            anchorMode: AnchorMode.Any,
-            postConditionMode: PostConditionMode.Allow,
-            fee: 200000, // 0.2 STX
-        };
-
-        console.log('Transaction options:', txOptions);
-
-        // Use wallet's native contract call method
-        if (walletState.provider === 'leather') {
-            console.log('Using Leather contract call...');
+        if (provider === 'leather') {
+            // Leather wallet signing
+            const { bytesToHex } = await import('@stacks/common');
             
-            const response = await window.LeatherProvider.request('stx_callContract', {
-                contract: `${CONFIG.CONTRACT_ADDRESS}.${CONFIG.CONTRACT_NAME}`,
-                functionName: 'mint',
-                functionArgs: [],
-                network: CONFIG.NETWORK,
-                postConditions: [],
-                sponsored: false
+            const txHex = bytesToHex(transaction.serialize());
+            
+            console.log('Requesting signature from Leather...');
+            
+            const response = await window.LeatherProvider.request('stx_signTransaction', {
+                txHex: txHex,
+                network: CONFIG.NETWORK
             });
 
-            if (response && response.result) {
-                const txId = response.result.txid || response.result.txId || response.result;
-                console.log('Mint transaction submitted:', txId);
-                
-                return {
-                    success: true,
-                    txId: txId,
-                    tokenId: null
-                };
+            if (!response || !response.result) {
+                throw new Error('No response from wallet');
             }
 
-            throw new Error('No transaction ID received from wallet');
-
-        } else if (walletState.provider === 'xverse') {
-            console.log('Using Xverse contract call...');
+            console.log('Transaction signed, broadcasting...');
             
-            const response = await window.XverseProviders.StacksProvider.request('stx_callContract', {
-                contract: `${CONFIG.CONTRACT_ADDRESS}.${CONFIG.CONTRACT_NAME}`,
-                functionName: 'mint',
-                functionArgs: [],
-                network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
-                postConditions: []
+            // Broadcast the signed transaction
+            const signedTxHex = response.result.txHex || response.result;
+            
+            const broadcastResponse = await fetch(`${CONFIG.STACKS_API}/v2/transactions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/octet-stream'
+                },
+                body: hexToBytes(signedTxHex)
             });
 
-            if (response && response.result) {
-                const txId = response.result.txid || response.result.txId || response.result;
-                console.log('Mint transaction submitted:', txId);
-                
-                return {
-                    success: true,
-                    txId: txId,
-                    tokenId: null
-                };
+            if (!broadcastResponse.ok) {
+                const errorText = await broadcastResponse.text();
+                console.error('Broadcast error:', errorText);
+                throw new Error(`Failed to broadcast transaction: ${errorText}`);
             }
 
-            throw new Error('No transaction ID received from wallet');
+            const txId = await broadcastResponse.text();
+            const cleanTxId = txId.replace(/"/g, '');
+            
+            console.log('Transaction broadcast successful:', cleanTxId);
+            return cleanTxId;
+
+        } else if (provider === 'xverse') {
+            // Xverse wallet signing
+            console.log('Requesting signature from Xverse...');
+            
+            const response = await window.XverseProviders.StacksProvider.request('stx_signTransaction', {
+                transaction: transaction,
+                network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+            });
+
+            if (!response || !response.result) {
+                throw new Error('No response from wallet');
+            }
+
+            console.log('Transaction signed by Xverse');
+            
+            const txId = response.result.txid || response.result.txId;
+            
+            if (!txId) {
+                // If no txId in response, it might have been broadcast already
+                console.log('No txId in response, transaction might be auto-broadcast');
+                return 'pending';
+            }
+
+            return txId;
         }
 
         throw new Error('Unsupported wallet provider');
 
     } catch (error) {
-        console.error('Mint transaction failed:', error);
-        console.error('Error stack:', error.stack);
-        throw new Error(`Mint failed: ${error.message}`);
+        console.error('Transaction signing error:', error);
+        console.error('Error details:', error.message);
+        throw new Error(`Transaction signing failed: ${error.message}`);
     }
 }
 
-// Sign transaction helper (kept for compatibility)
-export async function signTransaction(transaction, provider) {
-    // This is now unused but kept for backwards compatibility
-    console.warn('signTransaction called but not used - using native wallet methods instead');
-    return 'unused';
+// Helper function to convert hex string to Uint8Array
+function hexToBytes(hex) {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    }
+    return bytes;
 }
