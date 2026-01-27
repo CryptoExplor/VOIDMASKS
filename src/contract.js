@@ -207,8 +207,13 @@ export async function mintNFT(senderAddress, provider) {
         const StacksMainnet = networkModule.StacksMainnet || networkModule.default?.StacksMainnet;
 
         console.log('Loaded modules');
-        console.log('makeContractCall type:', typeof makeContractCall);
-        console.log('StacksTestnet type:', typeof StacksTestnet);
+        console.log('makeContractCall:', typeof makeContractCall);
+        console.log('AnchorMode:', typeof AnchorMode, AnchorMode);
+        console.log('PostConditionMode:', typeof PostConditionMode, PostConditionMode);
+        console.log('StacksTestnet:', typeof StacksTestnet);
+        console.log('StacksMainnet:', typeof StacksMainnet);
+        console.log('txModule keys:', Object.keys(txModule));
+        console.log('networkModule keys:', Object.keys(networkModule));
 
         // Parse contract address
         const { address, name } = parseContractAddress();
