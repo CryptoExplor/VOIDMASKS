@@ -185,62 +185,71 @@ export async function getTokensByOwner(owner) {
     }
 }
 
-// Mint NFT transaction - FIXED VERSION
+// Mint NFT transaction - COMPLETELY FIXED VERSION
 export async function mintNFT(senderAddress, provider) {
     try {
-        // Import Stacks.js libraries
-        const {
-            makeContractCall,
-            AnchorMode,
-            PostConditionMode,
-            StacksTestnet,
-            StacksMainnet
-        } = await import('@stacks/transactions');
+        console.log('Starting mint process...');
+        console.log('Sender:', senderAddress);
+        console.log('Provider:', provider);
+        console.log('Network:', CONFIG.NETWORK);
+
+        // Dynamic import to avoid initialization issues
+        const stacksTransactions = await import('@stacks/transactions');
+        
+        console.log('Loaded @stacks/transactions module');
 
         // Parse contract address
         const { address, name } = parseContractAddress();
+        console.log('Contract address:', address);
+        console.log('Contract name:', name);
 
-        // Determine network
-        const network = CONFIG.NETWORK === 'mainnet' 
-            ? new StacksMainnet() 
-            : new StacksTestnet();
+        // Create network instance based on config
+        let network;
+        if (CONFIG.NETWORK === 'mainnet') {
+            network = new stacksTransactions.StacksMainnet();
+        } else {
+            network = new stacksTransactions.StacksTestnet();
+        }
 
-        console.log('Minting on network:', CONFIG.NETWORK);
-        console.log('Contract:', address, name);
-        console.log('Sender:', senderAddress);
+        console.log('Network created:', network);
 
-        // Create contract call transaction
+        // Build transaction options
         const txOptions = {
             contractAddress: address,
             contractName: name,
             functionName: 'mint',
             functionArgs: [],
             network: network,
-            anchorMode: AnchorMode.Any,
-            postConditionMode: PostConditionMode.Allow, // Allow for testing
-            fee: 200000, // 0.2 STX fee - increased for reliability
+            anchorMode: stacksTransactions.AnchorMode.Any,
+            postConditionMode: stacksTransactions.PostConditionMode.Allow,
+            fee: 200000n, // Use BigInt
         };
 
-        console.log('Transaction options:', txOptions);
+        console.log('Transaction options prepared:', txOptions);
 
-        // Create unsigned transaction
-        const transaction = await makeContractCall(txOptions);
+        // Create the unsigned transaction
+        const transaction = await stacksTransactions.makeContractCall(txOptions);
 
-        console.log('Transaction created, signing...');
+        console.log('Unsigned transaction created');
+        console.log('Transaction type:', typeof transaction);
 
-        // Sign and broadcast transaction
+        // Sign and broadcast
         const txId = await signTransaction(transaction, provider);
 
-        console.log(`Mint transaction submitted on ${CONFIG.NETWORK}:`, txId);
+        console.log('Transaction signed and broadcast, txId:', txId);
 
         return {
             success: true,
             txId: txId,
-            tokenId: null // Will be determined after transaction confirmation
+            tokenId: null
         };
+
     } catch (error) {
-        console.error('Mint transaction failed:', error);
+        console.error('=== MINT ERROR ===');
+        console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        console.error('Full error:', error);
         throw new Error(`Mint failed: ${error.message}`);
     }
 }
