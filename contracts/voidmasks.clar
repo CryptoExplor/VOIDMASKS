@@ -6,8 +6,11 @@
 ;; -----------------------------------------------------
 ;; SIP-009 Trait Implementation
 ;; -----------------------------------------------------
-;; CRITICAL: Must implement the official SIP-009 trait for marketplace compatibility
-(impl-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
+;; IMPORTANT: For mainnet use SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait
+;; For testnet, use the testnet trait address or deploy your own trait
+;; Option 1: Comment out for initial testing, uncomment after deploying trait
+;; Option 2: Deploy the SIP-009 trait yourself first, then reference it
+;; (impl-trait 'ST1NXBK3K5YYMD6FD41MVNP3JS1GABZ8TRVX023PT.nft-trait.nft-trait)
 
 ;; -----------------------------------------------------
 ;; NFT Definition
