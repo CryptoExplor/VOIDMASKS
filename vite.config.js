@@ -4,9 +4,11 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 export default defineConfig({
   plugins: [
     nodePolyfills({
-      include: ['buffer'],
+      include: ['buffer', 'process', 'util', 'stream'],
       globals: {
-        Buffer: true
+        Buffer: true,
+        global: true,
+        process: true
       }
     })
   ],
@@ -31,6 +33,18 @@ export default defineConfig({
     host: true
   },
   optimizeDeps: {
-    include: ['@stacks/transactions']
+    include: ['@stacks/transactions', '@stacks/common'],
+    esbuildOptions: {
+      define: {
+        global: 'globalThis'
+      }
+    }
+  },
+  resolve: {
+    alias: {
+      buffer: 'buffer/',
+      process: 'process/browser',
+      util: 'util/'
+    }
   }
 });
