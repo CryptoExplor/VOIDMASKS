@@ -4,7 +4,7 @@
 // ========================================
 
 import { CONFIG, utils, toggleNetwork } from './config.js';
-import { getWalletState, executeMint } from './wallet.js';
+import { getWalletState, executeMint, disconnectWallet } from './wallet.js';
 import { getTotalSupply, getTokensByOwner, getLastTokenId } from './contract.js';
 import { generateSVGFromTokenId, generatePreviewTokens } from './svg.js';
 
@@ -25,6 +25,12 @@ export async function initializeApp() {
 
     // Set up event listeners
     setupEventListeners();
+
+    // Check if wallet is connected and update UI
+    const wallet = getWalletState();
+    if (wallet.isConnected) {
+        updateUIState('connected', wallet);
+    }
 
     // Load initial data
     await refreshData();
@@ -58,18 +64,21 @@ function setupEventListeners() {
 
 // Handle network switch
 async function handleNetworkSwitch() {
+    const wallet = getWalletState();
+    
+    // If wallet is connected, disconnect first
+    if (wallet.isConnected) {
+        const confirmed = confirm('Switching networks will disconnect your wallet. Continue?');
+        if (!confirmed) return;
+        
+        disconnectWallet();
+    }
+
+    // Toggle network
     const newNetwork = toggleNetwork();
     console.log(`Switched to ${newNetwork}`);
 
-    // Disconnect wallet to fail-safe
-    const wallet = getWalletState();
-    if (wallet.isConnected) {
-        alert('Switching networks. Wallet will be disconnected.');
-        // We import disconnectWallet at top if possible, or just dispatch click
-        const disconnectBtn = document.getElementById('disconnect-wallet');
-        if (disconnectBtn) disconnectBtn.click();
-    }
-
+    // Update UI
     updateNetworkBadge();
     await refreshData();
 }
@@ -281,6 +290,7 @@ function showLoading(isLoading) {
 export function getUIState() {
     return { ...uiState };
 }
+
 // Update network badge
 function updateNetworkBadge() {
     const badge = document.getElementById('network-badge');
