@@ -3,41 +3,21 @@ name = "voidmasks"
 authors = ["CryptoExplor"]
 description = "VOIDMASKS — 100% on-chain schizocore SVG NFTs on Stacks"
 telemetry = false
-# Add requirements for the SIP-009 trait
-requirements = [
-    { contract_id = "SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait", clarity_version = 1 }
-]
+cache_dir = "./.cache"
 
-# --------------------------------------------------
-# Contracts
-# --------------------------------------------------
+[[project.requirements]]
+contract_id = "SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait"
 
 [contracts.voidmasks]
 path = "contracts/voidmasks.clar"
 clarity_version = 4
+epoch = "latest"
 
-# --------------------------------------------------
-# REPL / tooling
-# --------------------------------------------------
+[repl.analysis]
+passes = ["check_checker"]
 
-[repl]
-clarity_version = 4
-
-# --------------------------------------------------
-# Network definitions (used by Clarinet CLI only)
-# Hiro Platform ignores these but requires file validity
-# --------------------------------------------------
-
-[networks.testnet]
-stacks_node_rpc_address = "https://stacks-node-api.testnet.stacks.co"
-stacks_node_events_address = "https://stacks-node-api.testnet.stacks.co"
-bitcoin_node_rpc_address = "https://bitcoin-node-api.testnet.stacks.co"
-bitcoin_node_rpc_username = ""
-bitcoin_node_rpc_password = ""
-
-[networks.mainnet]
-stacks_node_rpc_address = "https://stacks-node-api.mainnet.stacks.co"
-stacks_node_events_address = "https://stacks-node-api.mainnet.stacks.co"
-bitcoin_node_rpc_address = "https://bitcoin-node-api.mainnet.stacks.co"
-bitcoin_node_rpc_username = ""
-bitcoin_node_rpc_password = ""
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = true
+trusted_caller = false
+callee_filter = false
