@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 import { signTransaction } from './wallet.js';
 import { generateSVGFromTokenId } from './svg.js';
-import { STACKS_MAINNET, STACKS_TESTNET } from '@stacks/network';
+import { StacksMainnet, StacksTestnet } from '@stacks/network';
 import { AnchorMode, PostConditionMode, makeContractCall } from '@stacks/transactions';
 
 // Parse contract address - it's in format "ADDRESS.CONTRACT_NAME"
@@ -205,9 +205,9 @@ export async function mintNFT(senderAddress, provider) {
         // Create network instance based on config
         let network;
         if (CONFIG.NETWORK === 'mainnet') {
-            network = STACKS_MAINNET;
+            network = new StacksMainnet();
         } else {
-            network = STACKS_TESTNET;
+            network = new StacksTestnet();
         }
 
         console.log('Network created:', network);
@@ -221,6 +221,7 @@ export async function mintNFT(senderAddress, provider) {
             network: network,
             anchorMode: AnchorMode.Any,
             postConditionMode: PostConditionMode.Allow,
+            postConditions: [],
             fee: BigInt(200000), // Explicitly use BigInt constructor
         };
 
