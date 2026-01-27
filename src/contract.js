@@ -185,7 +185,7 @@ export async function getTokensByOwner(owner) {
     }
 }
 
-// Mint NFT transaction - COMPLETELY FIXED VERSION
+// Mint NFT transaction - FIXED WITH PROPER IMPORTS
 export async function mintNFT(senderAddress, provider) {
     try {
         console.log('Starting mint process...');
@@ -193,10 +193,19 @@ export async function mintNFT(senderAddress, provider) {
         console.log('Provider:', provider);
         console.log('Network:', CONFIG.NETWORK);
 
-        // Dynamic import to avoid initialization issues
-        const stacksTransactions = await import('@stacks/transactions');
+        // Import the module - getting the actual exports
+        const module = await import('@stacks/transactions');
+        
+        // Access the actual exported classes/functions
+        const makeContractCall = module.makeContractCall || module.default?.makeContractCall;
+        const StacksTestnet = module.StacksTestnet || module.default?.StacksTestnet;
+        const StacksMainnet = module.StacksMainnet || module.default?.StacksMainnet;
+        const AnchorMode = module.AnchorMode || module.default?.AnchorMode;
+        const PostConditionMode = module.PostConditionMode || module.default?.PostConditionMode;
         
         console.log('Loaded @stacks/transactions module');
+        console.log('makeContractCall type:', typeof makeContractCall);
+        console.log('StacksTestnet type:', typeof StacksTestnet);
 
         // Parse contract address
         const { address, name } = parseContractAddress();
@@ -206,9 +215,9 @@ export async function mintNFT(senderAddress, provider) {
         // Create network instance based on config
         let network;
         if (CONFIG.NETWORK === 'mainnet') {
-            network = new stacksTransactions.StacksMainnet();
+            network = new StacksMainnet();
         } else {
-            network = new stacksTransactions.StacksTestnet();
+            network = new StacksTestnet();
         }
 
         console.log('Network created:', network);
@@ -220,15 +229,15 @@ export async function mintNFT(senderAddress, provider) {
             functionName: 'mint',
             functionArgs: [],
             network: network,
-            anchorMode: stacksTransactions.AnchorMode.Any,
-            postConditionMode: stacksTransactions.PostConditionMode.Allow,
-            fee: 200000n, // Use BigInt
+            anchorMode: AnchorMode.Any,
+            postConditionMode: PostConditionMode.Allow,
+            fee: BigInt(200000), // Explicitly use BigInt constructor
         };
 
         console.log('Transaction options prepared:', txOptions);
 
         // Create the unsigned transaction
-        const transaction = await stacksTransactions.makeContractCall(txOptions);
+        const transaction = await makeContractCall(txOptions);
 
         console.log('Unsigned transaction created');
         console.log('Transaction type:', typeof transaction);
