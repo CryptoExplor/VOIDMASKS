@@ -2,7 +2,9 @@
 const NETWORKS = {
     testnet: {
         NETWORK: 'testnet',
-        CONTRACT_ADDRESS: 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ.voidmasks', // Fixed: Now matches deployment plan
+        // Contract address is just the deployer address
+        CONTRACT_ADDRESS: 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ',
+        CONTRACT_NAME: 'voidmasks',
         STACKS_API: 'https://api.testnet.hiro.so',
         MINT_FEE: 0, // Free
         MIN_FEE_DISPLAY: 'Free'
@@ -10,6 +12,7 @@ const NETWORKS = {
     mainnet: {
         NETWORK: 'mainnet',
         CONTRACT_ADDRESS: 'SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG', // Update with actual Mainnet address after deployment
+        CONTRACT_NAME: 'voidmasks',
         STACKS_API: 'https://api.mainnet.hiro.so',
         MINT_FEE: 0, // Free mint
         MIN_FEE_DISPLAY: 'Free'
@@ -21,7 +24,6 @@ export const CONFIG = {
     ...NETWORKS.testnet,
 
     // Static settings
-    CONTRACT_NAME: 'voidmasks',
     GAS_LIMIT: 10000000,
     REFRESH_INTERVAL: 30000,
     MAX_TOKENS_DISPLAY: 50,
@@ -68,4 +70,3 @@ export const utils = {
         return `#${tokenId.toString().padStart(4, '0')}`;
     }
 };
-
