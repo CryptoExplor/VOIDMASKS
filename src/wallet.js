@@ -1,6 +1,5 @@
 import { CONFIG, utils } from './config.js';
 import { updateUIState } from './ui.js';
-import { mintNFT } from './contract.js';
 
 // Global wallet state
 let walletState = {
@@ -138,53 +137,109 @@ export function getWalletState() {
     return { ...walletState };
 }
 
-// Execute mint transaction
+// Execute mint transaction - SIMPLIFIED VERSION
 export async function executeMint() {
     if (!walletState.isConnected) {
         throw new Error('Wallet not connected');
     }
 
     try {
-        const result = await mintNFT(walletState.address, walletState.provider);
-        return result;
+        console.log('Starting mint transaction...');
+        console.log('Wallet provider:', walletState.provider);
+        console.log('Network:', CONFIG.NETWORK);
+
+        // Import Stacks.js
+        const {
+            makeContractCall,
+            AnchorMode,
+            PostConditionMode,
+            StacksTestnet,
+            StacksMainnet,
+            broadcastTransaction
+        } = await import('@stacks/transactions');
+
+        // Determine network
+        const network = CONFIG.NETWORK === 'mainnet' 
+            ? new StacksMainnet() 
+            : new StacksTestnet();
+
+        // Create transaction options
+        const txOptions = {
+            contractAddress: CONFIG.CONTRACT_ADDRESS,
+            contractName: CONFIG.CONTRACT_NAME,
+            functionName: 'mint',
+            functionArgs: [],
+            network: network,
+            anchorMode: AnchorMode.Any,
+            postConditionMode: PostConditionMode.Allow,
+            fee: 200000, // 0.2 STX
+        };
+
+        console.log('Transaction options:', txOptions);
+
+        // Use wallet's native contract call method
+        if (walletState.provider === 'leather') {
+            console.log('Using Leather contract call...');
+            
+            const response = await window.LeatherProvider.request('stx_callContract', {
+                contract: `${CONFIG.CONTRACT_ADDRESS}.${CONFIG.CONTRACT_NAME}`,
+                functionName: 'mint',
+                functionArgs: [],
+                network: CONFIG.NETWORK,
+                postConditions: [],
+                sponsored: false
+            });
+
+            if (response && response.result) {
+                const txId = response.result.txid || response.result.txId || response.result;
+                console.log('Mint transaction submitted:', txId);
+                
+                return {
+                    success: true,
+                    txId: txId,
+                    tokenId: null
+                };
+            }
+
+            throw new Error('No transaction ID received from wallet');
+
+        } else if (walletState.provider === 'xverse') {
+            console.log('Using Xverse contract call...');
+            
+            const response = await window.XverseProviders.StacksProvider.request('stx_callContract', {
+                contract: `${CONFIG.CONTRACT_ADDRESS}.${CONFIG.CONTRACT_NAME}`,
+                functionName: 'mint',
+                functionArgs: [],
+                network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
+                postConditions: []
+            });
+
+            if (response && response.result) {
+                const txId = response.result.txid || response.result.txId || response.result;
+                console.log('Mint transaction submitted:', txId);
+                
+                return {
+                    success: true,
+                    txId: txId,
+                    tokenId: null
+                };
+            }
+
+            throw new Error('No transaction ID received from wallet');
+        }
+
+        throw new Error('Unsupported wallet provider');
+
     } catch (error) {
         console.error('Mint transaction failed:', error);
-        throw error;
+        console.error('Error stack:', error.stack);
+        throw new Error(`Mint failed: ${error.message}`);
     }
 }
 
-// Sign and broadcast transaction
-export async function signTransaction(tx, provider) {
-    try {
-        let signedTx;
-
-        if (provider === 'leather') {
-            const response = await window.LeatherProvider.request('stx_signTransaction', {
-                tx: tx.serialize(),
-                network: CONFIG.NETWORK
-            });
-            signedTx = response.result;
-        } else if (provider === 'xverse') {
-            const response = await window.XverseProviders.StacksProvider.signTransaction(tx);
-            signedTx = response;
-        }
-
-        // Broadcast transaction
-        const broadcastResponse = await fetch(`${CONFIG.STACKS_API}/v2/transactions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/octet-stream'
-            },
-            body: signedTx
-        });
-
-        if (!broadcastResponse.ok) {
-            throw new Error('Failed to broadcast transaction');
-        }
-
-        const txId = await broadcastResponse.text();
-        return txId;
-    } catch (error) {
-        throw new Error(`Transaction signing failed: ${error.message}`);
-    }
+// Sign transaction helper (kept for compatibility)
+export async function signTransaction(transaction, provider) {
+    // This is now unused but kept for backwards compatibility
+    console.warn('signTransaction called but not used - using native wallet methods instead');
+    return 'unused';
 }
