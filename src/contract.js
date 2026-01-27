@@ -1,6 +1,8 @@
 import { CONFIG } from './config.js';
 import { signTransaction } from './wallet.js';
 import { generateSVGFromTokenId } from './svg.js';
+import { STACKS_MAINNET, STACKS_TESTNET } from '@stacks/network';
+import { AnchorMode, PostConditionMode, makeContractCall } from '@stacks/transactions';
 
 // Parse contract address - it's in format "ADDRESS.CONTRACT_NAME"
 const parseContractAddress = () => {
@@ -193,39 +195,19 @@ export async function mintNFT(senderAddress, provider) {
         console.log('Provider:', provider);
         console.log('Network:', CONFIG.NETWORK);
 
-        // Import the modules
-        const txModule = await import('@stacks/transactions');
-        const networkModule = await import('@stacks/network');
-
-        // Access the actual exported classes/functions
-        const makeContractCall = txModule.makeContractCall || txModule.default?.makeContractCall;
-        const AnchorMode = txModule.AnchorMode || txModule.default?.AnchorMode;
-        const PostConditionMode = txModule.PostConditionMode || txModule.default?.PostConditionMode;
-
-        // Network classes come from @stacks/network now
-        const StacksTestnet = networkModule.StacksTestnet || networkModule.default?.StacksTestnet;
-        const StacksMainnet = networkModule.StacksMainnet || networkModule.default?.StacksMainnet;
-
-        console.log('Loaded modules');
-        console.log('makeContractCall:', typeof makeContractCall);
-        console.log('AnchorMode:', typeof AnchorMode, AnchorMode);
-        console.log('PostConditionMode:', typeof PostConditionMode, PostConditionMode);
-        console.log('StacksTestnet:', typeof StacksTestnet);
-        console.log('StacksMainnet:', typeof StacksMainnet);
-        console.log('txModule keys:', Object.keys(txModule));
-        console.log('networkModule keys:', Object.keys(networkModule));
 
         // Parse contract address
         const { address, name } = parseContractAddress();
         console.log('Contract address:', address);
         console.log('Contract name:', name);
+        console.log('Contract name:', name);
 
         // Create network instance based on config
         let network;
         if (CONFIG.NETWORK === 'mainnet') {
-            network = new StacksMainnet();
+            network = STACKS_MAINNET;
         } else {
-            network = new StacksTestnet();
+            network = STACKS_TESTNET;
         }
 
         console.log('Network created:', network);
