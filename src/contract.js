@@ -1,9 +1,13 @@
 import { CONFIG } from './config.js';
 import { signTransaction } from './wallet.js';
 import { generateSVGFromTokenId } from './svg.js';
-
-// This version will be imported but wrapped differently
-import * as StacksTransactions from '@stacks/transactions';
+import {
+    makeContractCall,
+    AnchorMode,
+    PostConditionMode,
+    StacksTestnet,
+    StacksMainnet,
+} from '@stacks/transactions';
 
 // Parse contract address - it's in format "ADDRESS.CONTRACT_NAME"
 const parseContractAddress = () => {
@@ -188,35 +192,29 @@ export async function getTokensByOwner(owner) {
     }
 }
 
-// Mint NFT transaction - NAMESPACE IMPORT VERSION
+// Mint NFT transaction - STATIC IMPORTS VERSION
 export async function mintNFT(senderAddress, provider) {
     try {
         console.log('Starting mint process...');
         console.log('Sender:', senderAddress);
         console.log('Provider:', provider);
         console.log('Network:', CONFIG.NETWORK);
-        
-        // Log what we imported
-        console.log('StacksTransactions namespace:', StacksTransactions);
-        console.log('Available exports:', Object.keys(StacksTransactions));
 
         // Parse contract address
         const { address, name } = parseContractAddress();
         console.log('Contract address:', address);
         console.log('Contract name:', name);
 
-        // Access constructors from namespace
-        const NetworkClass = CONFIG.NETWORK === 'mainnet' 
-            ? StacksTransactions.StacksMainnet 
-            : StacksTransactions.StacksTestnet;
-            
-        console.log('NetworkClass:', NetworkClass);
-        console.log('NetworkClass type:', typeof NetworkClass);
+        // Create network instance - using statically imported constructors
+        let network;
+        if (CONFIG.NETWORK === 'mainnet') {
+            network = new StacksMainnet();
+        } else {
+            network = new StacksTestnet();
+        }
 
-        // Create network instance
-        const network = new NetworkClass();
         console.log('Network created:', network);
-        console.log('Network constructor:', network.constructor.name);
+        console.log('Network type:', network.constructor.name);
 
         // Build transaction options
         const txOptions = {
@@ -225,8 +223,8 @@ export async function mintNFT(senderAddress, provider) {
             functionName: 'mint',
             functionArgs: [],
             network: network,
-            anchorMode: StacksTransactions.AnchorMode.Any,
-            postConditionMode: StacksTransactions.PostConditionMode.Allow,
+            anchorMode: AnchorMode.Any,
+            postConditionMode: PostConditionMode.Allow,
             fee: BigInt(200000),
         };
 
@@ -234,17 +232,15 @@ export async function mintNFT(senderAddress, provider) {
 
         // Create the unsigned transaction
         console.log('Calling makeContractCall...');
-        console.log('makeContractCall type:', typeof StacksTransactions.makeContractCall);
-        
-        const transaction = await StacksTransactions.makeContractCall(txOptions);
+        const transaction = await makeContractCall(txOptions);
 
-        console.log('✅ Unsigned transaction created');
-        console.log('Transaction:', transaction);
+        console.log('Unsigned transaction created');
+        console.log('Transaction type:', typeof transaction);
 
         // Sign and broadcast
         const txId = await signTransaction(transaction, provider);
 
-        console.log('✅ Transaction signed and broadcast, txId:', txId);
+        console.log('Transaction signed and broadcast, txId:', txId);
 
         return {
             success: true,
@@ -257,17 +253,7 @@ export async function mintNFT(senderAddress, provider) {
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
         console.error('Error name:', error.name);
-        console.error('Error constructor:', error.constructor?.name);
         console.error('Full error:', error);
-        
-        // Try to give more specific error info
-        if (error.message.includes('not a constructor')) {
-            console.error('CONSTRUCTOR ERROR DETAILS:');
-            console.error('- StacksTestnet type:', typeof StacksTransactions.StacksTestnet);
-            console.error('- StacksMainnet type:', typeof StacksTransactions.StacksMainnet);
-            console.error('- Available on namespace:', Object.keys(StacksTransactions));
-        }
-        
         throw new Error(`Mint failed: ${error.message}`);
     }
 }
