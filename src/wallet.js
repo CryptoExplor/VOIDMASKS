@@ -208,13 +208,25 @@ export async function executeMint() {
         console.log('Address:', walletState.address);
         console.log('Network:', CONFIG.NETWORK);
 
-        // Parse contract address
-        const contractParts = CONFIG.CONTRACT_ADDRESS.includes('.') 
-            ? CONFIG.CONTRACT_ADDRESS.split('.')
-            : [CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_NAME];
+        // Parse contract address - handle undefined gracefully
+        let contractAddress, contractName;
+        
+        if (!CONFIG.CONTRACT_ADDRESS) {
+            throw new Error('Contract address not configured');
+        }
 
-        const contractAddress = contractParts[0];
-        const contractName = contractParts[1];
+        if (CONFIG.CONTRACT_ADDRESS.includes('.')) {
+            const parts = CONFIG.CONTRACT_ADDRESS.split('.');
+            contractAddress = parts[0];
+            contractName = parts[1];
+        } else {
+            contractAddress = CONFIG.CONTRACT_ADDRESS;
+            contractName = CONFIG.CONTRACT_NAME;
+        }
+
+        if (!contractAddress || !contractName) {
+            throw new Error('Invalid contract configuration');
+        }
 
         console.log('Contract:', `${contractAddress}.${contractName}`);
 
@@ -235,7 +247,7 @@ export async function executeMint() {
     }
 }
 
-// Sign with Leather - USES LEATHER'S NATIVE API
+// Sign with Leather - USES LEATHER'S NATIVE API WITH PROPER ERROR HANDLING
 async function signWithLeather(contractAddress, contractName) {
     try {
         console.log('Requesting Leather to sign transaction...');
@@ -252,6 +264,13 @@ async function signWithLeather(contractAddress, contractName) {
 
         console.log('Leather response:', result);
 
+        // Check for JSON-RPC error response
+        if (result && result.error) {
+            console.error('Leather returned error:', result.error);
+            const errorMessage = result.error.message || result.error.code || 'Unknown error from Leather';
+            throw new Error(errorMessage);
+        }
+
         if (!result || !result.result) {
             throw new Error('No response from Leather wallet');
         }
@@ -263,15 +282,29 @@ async function signWithLeather(contractAddress, contractName) {
         return txId;
     } catch (error) {
         console.error('Leather signing error:', error);
-        // Provide more helpful error message
-        if (error.message.includes('User rejected')) {
-            throw new Error('Transaction cancelled by user');
+        
+        // Handle different error types
+        if (error && typeof error === 'object') {
+            // JSON-RPC error object
+            if (error.error && error.error.message) {
+                throw new Error(`Leather error: ${error.error.message}`);
+            }
+            // Standard Error object
+            if (error.message) {
+                if (error.message.toLowerCase().includes('reject') || 
+                    error.message.toLowerCase().includes('cancel')) {
+                    throw new Error('Transaction cancelled by user');
+                }
+                throw new Error(`Leather signing failed: ${error.message}`);
+            }
         }
-        throw new Error(`Leather signing failed: ${error.message}`);
+        
+        // Fallback for unknown error types
+        throw new Error('Leather signing failed: Unknown error');
     }
 }
 
-// Sign with Xverse - USES XVERSE'S NATIVE API
+// Sign with Xverse - USES XVERSE'S NATIVE API WITH PROPER ERROR HANDLING
 async function signWithXverse(contractAddress, contractName) {
     try {
         console.log('Requesting Xverse to sign transaction...');
@@ -287,6 +320,13 @@ async function signWithXverse(contractAddress, contractName) {
 
         console.log('Xverse response:', result);
 
+        // Check for error response
+        if (result && result.error) {
+            console.error('Xverse returned error:', result.error);
+            const errorMessage = result.error.message || result.error.code || 'Unknown error from Xverse';
+            throw new Error(errorMessage);
+        }
+
         if (!result || !result.result) {
             throw new Error('No response from Xverse wallet');
         }
@@ -298,11 +338,25 @@ async function signWithXverse(contractAddress, contractName) {
         return txId;
     } catch (error) {
         console.error('Xverse signing error:', error);
-        // Provide more helpful error message
-        if (error.message.includes('User rejected')) {
-            throw new Error('Transaction cancelled by user');
+        
+        // Handle different error types
+        if (error && typeof error === 'object') {
+            // JSON-RPC error object
+            if (error.error && error.error.message) {
+                throw new Error(`Xverse error: ${error.error.message}`);
+            }
+            // Standard Error object
+            if (error.message) {
+                if (error.message.toLowerCase().includes('reject') || 
+                    error.message.toLowerCase().includes('cancel')) {
+                    throw new Error('Transaction cancelled by user');
+                }
+                throw new Error(`Xverse signing failed: ${error.message}`);
+            }
         }
-        throw new Error(`Xverse signing failed: ${error.message}`);
+        
+        // Fallback for unknown error types
+        throw new Error('Xverse signing failed: Unknown error');
     }
 }
 
