@@ -122,32 +122,43 @@ export async function getTokenURI(tokenId) {
   }
 }
 
-export async function getBalanceOf(owner) {
-  try {
-    const res = await callRead('get-balance', [
-      cvToHex(standardPrincipalCV(owner)),
-    ]);
-
-    return parseOkUInt(res.result);
-  } catch (error) {
-    console.error(`Failed to get balance for ${owner}:`, error);
-    return 0;
-  }
-}
-
+// FIXED: Don't rely on get-balance, iterate through all tokens
 export async function getTokensByOwner(owner) {
-  const balance = await getBalanceOf(owner);
-  if (balance === 0) return [];
+  console.log('Fetching tokens for owner:', owner);
+  
+  try {
+    const lastId = await getLastTokenId();
+    console.log('Last token ID:', lastId);
+    
+    if (lastId === 0) {
+      console.log('No tokens minted yet');
+      return [];
+    }
 
-  const tokens = [];
-  const lastId = await getLastTokenId();
+    const tokens = [];
+    
+    // Iterate through all token IDs to find owner's tokens
+    for (let i = 1; i <= lastId; i++) {
+      try {
+        const tokenOwner = await getOwnerOfToken(i);
+        console.log(`Token ${i} owner:`, tokenOwner);
+        
+        if (tokenOwner && tokenOwner.toLowerCase() === owner.toLowerCase()) {
+          tokens.push(i);
+          console.log(`Found token ${i} owned by user`);
+        }
+      } catch (error) {
+        console.error(`Error checking token ${i}:`, error);
+      }
+    }
 
-  for (let i = 1; i <= lastId && tokens.length < balance; i++) {
-    const tokenOwner = await getOwnerOfToken(i);
-    if (tokenOwner === owner) tokens.push(i);
+    console.log('Total tokens found:', tokens);
+    return tokens;
+    
+  } catch (error) {
+    console.error('Failed to get tokens by owner:', error);
+    return [];
   }
-
-  return tokens;
 }
 
 /* --------------------------------------------------
