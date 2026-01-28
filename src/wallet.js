@@ -247,20 +247,26 @@ export async function executeMint() {
     }
 }
 
-// Sign with Leather - USES LEATHER'S NATIVE API WITH PROPER ERROR HANDLING
+// Sign with Leather - CORRECTED API FORMAT
 async function signWithLeather(contractAddress, contractName) {
     try {
         console.log('Requesting Leather to sign transaction...');
 
-        // Leather's stx_callContract method
-        const result = await window.LeatherProvider.request('stx_callContract', {
-            contractAddress: contractAddress,
-            contractName: contractName,
+        // Leather expects "contract" as a single string in "ADDRESS.CONTRACT" format
+        const contractId = `${contractAddress}.${contractName}`;
+        console.log('Contract ID:', contractId);
+
+        const requestPayload = {
+            contract: contractId,  // Combined format, not separate fields
             functionName: 'mint',
             functionArgs: [],
             network: CONFIG.NETWORK,
-            postConditions: [],
-        });
+        };
+
+        console.log('Request payload:', requestPayload);
+
+        // Leather's stx_callContract method
+        const result = await window.LeatherProvider.request('stx_callContract', requestPayload);
 
         console.log('Leather response:', result);
 
@@ -361,7 +367,6 @@ async function signWithXverse(contractAddress, contractName) {
 }
 
 // Legacy function for compatibility with contract.js
-// This is kept for backwards compatibility but not used in the new flow
 export async function signTransaction(txOptions, senderAddress, provider) {
     console.log('=== LEGACY SIGN TRANSACTION (NOT USED) ===');
     console.log('Use executeMint() instead');
