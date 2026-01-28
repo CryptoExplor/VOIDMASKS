@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     // Determine network and contract from environment or defaults
     const network = process.env.NETWORK || 'testnet';
     const contractAddress = process.env.CONTRACT_ADDRESS || 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ';
-    const contractName = process.env.CONTRACT_NAME || 'voidmasks3';
+    const contractName = process.env.CONTRACT_NAME || 'test1'; // FIXED: Use correct contract name
     const stacksApi = network === 'mainnet' 
       ? 'https://api.mainnet.hiro.so'
       : 'https://api.testnet.hiro.so';
@@ -49,25 +49,50 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
+    console.log('Contract response:', JSON.stringify(data).substring(0, 200));
 
     // Extract SVG string from response
     let svgContent = '';
     
     if (data.result) {
-      // The result is a Clarity string wrapped in quotes
-      // Extract the content between quotes
-      const match = data.result.match(/"([^"]*)"/);
-      if (match && match[1]) {
-        svgContent = match[1];
-        
-        // Decode URL-encoded characters that Clarity uses
-        svgContent = decodeURIComponent(svgContent.replace(/\+/g, ' '));
+      // Try to extract from hex format first (0x...)
+      if (data.result.startsWith('0x')) {
+        try {
+          // Decode hex string
+          const hex = data.result.slice(2); // Remove 0x prefix
+          const bytes = hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16));
+          svgContent = String.fromCharCode(...bytes);
+          
+          // Remove Clarity string wrapper if present
+          if (svgContent.startsWith('"') && svgContent.endsWith('"')) {
+            svgContent = svgContent.slice(1, -1);
+          }
+        } catch (hexError) {
+          console.error('Error parsing hex:', hexError);
+        }
+      }
+      
+      // Try text format if hex didn't work
+      if (!svgContent || !svgContent.includes('<svg')) {
+        const match = data.result.match(/"([^"]*)"/);
+        if (match && match[1]) {
+          svgContent = match[1];
+          
+          // Decode URL-encoded characters that Clarity uses
+          svgContent = svgContent.replace(/%23/g, '#')
+                                 .replace(/%27/g, "'")
+                                 .replace(/%3C/g, '<')
+                                 .replace(/%3E/g, '>')
+                                 .replace(/%20/g, ' ')
+                                 .replace(/\+/g, ' ');
+        }
       }
     }
 
     // Ensure we have valid SVG
     if (!svgContent || !svgContent.includes('<svg')) {
       console.error('Invalid SVG content. Raw result:', data.result?.substring(0, 200));
+      console.error('Extracted SVG:', svgContent);
       throw new Error('Invalid SVG response from contract');
     }
 
