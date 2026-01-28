@@ -6,6 +6,8 @@ import {
   standardPrincipalCV,
   uintCV,
   cvToHex,
+  hexToCV,
+  cvToValue
 } from '@stacks/transactions';
 
 /* --------------------------------------------------
@@ -61,9 +63,34 @@ async function callRead(functionName, args = []) {
   return response.json();
 }
 
+// FIXED: Parse both hex and text responses
 function parseOkUInt(result) {
-  const match = result?.match(/\(ok u(\d+)\)/);
-  return match ? Number(match[1]) : 0;
+  // Try text format first: (ok u123)
+  const textMatch = result?.match(/\(ok u(\d+)\)/);
+  if (textMatch) {
+    return Number(textMatch[1]);
+  }
+  
+  // Try hex format: 0x070100000000000000000000000000000001
+  if (result && result.startsWith('0x')) {
+    try {
+      // Decode hex to Clarity value
+      const clarityValue = hexToCV(result);
+      const jsValue = cvToValue(clarityValue);
+      
+      // Handle response/optional wrapper
+      if (jsValue && typeof jsValue === 'object' && 'value' in jsValue) {
+        return Number(jsValue.value);
+      }
+      
+      return Number(jsValue) || 0;
+    } catch (error) {
+      console.error('Error parsing hex response:', error);
+      return 0;
+    }
+  }
+  
+  return 0;
 }
 
 /* --------------------------------------------------
@@ -73,7 +100,9 @@ function parseOkUInt(result) {
 export async function getTotalSupply() {
   try {
     const res = await callRead('get-total-supply');
-    return parseOkUInt(res.result);
+    const supply = parseOkUInt(res.result);
+    console.log('📊 Total Supply:', supply);
+    return supply;
   } catch (error) {
     console.error('Failed to get total supply:', error);
     return 0;
@@ -83,7 +112,9 @@ export async function getTotalSupply() {
 export async function getLastTokenId() {
   try {
     const res = await callRead('get-last-token-id');
-    return parseOkUInt(res.result);
+    const lastId = parseOkUInt(res.result);
+    console.log('📊 Last Token ID:', lastId);
+    return lastId;
   } catch (error) {
     console.error('Failed to get last token ID:', error);
     return 0;
@@ -96,6 +127,25 @@ export async function getOwnerOfToken(tokenId) {
       cvToHex(uintCV(tokenId)),
     ]);
 
+    // Handle hex response
+    if (res.result && res.result.startsWith('0x')) {
+      try {
+        const clarityValue = hexToCV(res.result);
+        const jsValue = cvToValue(clarityValue);
+        
+        // Handle optional wrapper
+        if (jsValue && typeof jsValue === 'object' && 'value' in jsValue) {
+          return jsValue.value || null;
+        }
+        
+        return jsValue || null;
+      } catch (error) {
+        console.error('Error parsing owner hex:', error);
+        return null;
+      }
+    }
+
+    // Handle text response
     if (res.result.includes('none')) return null;
 
     const match = res.result.match(/([ST][A-Z0-9]{38})/);
@@ -112,6 +162,25 @@ export async function getTokenURI(tokenId) {
       cvToHex(uintCV(tokenId)),
     ]);
 
+    // Handle hex response
+    if (res.result && res.result.startsWith('0x')) {
+      try {
+        const clarityValue = hexToCV(res.result);
+        const jsValue = cvToValue(clarityValue);
+        
+        // Handle optional wrapper
+        if (jsValue && typeof jsValue === 'object' && 'value' in jsValue) {
+          return jsValue.value || null;
+        }
+        
+        return jsValue || null;
+      } catch (error) {
+        console.error('Error parsing URI hex:', error);
+        return null;
+      }
+    }
+
+    // Handle text response
     if (res.result.includes('none')) return null;
 
     const match = res.result.match(/"(data:[^"]+)"/);
