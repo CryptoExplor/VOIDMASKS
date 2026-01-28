@@ -5,7 +5,7 @@
 
 import { CONFIG, utils, toggleNetwork } from './config.js';
 import { getWalletState, executeMint, disconnectWallet } from './wallet.js';
-import { getTotalSupply, getTokensByOwner, getLastTokenId } from './contract.js';
+import { getTotalSupply, getTokensByOwner, getLastTokenId, getTokenURI } from './contract.js';
 import { generateSVGFromTokenId, generatePreviewTokens } from './svg.js';
 
 // Global UI state
@@ -65,12 +65,12 @@ function setupEventListeners() {
 // Handle network switch
 async function handleNetworkSwitch() {
     const wallet = getWalletState();
-    
+
     // If wallet is connected, disconnect first
     if (wallet.isConnected) {
         const confirmed = confirm('Switching networks will disconnect your wallet. Continue?');
         if (!confirmed) return;
-        
+
         disconnectWallet();
     }
 
@@ -167,6 +167,45 @@ async function loadUserTokens(address) {
     }
 }
 
+/**
+ * Attempt to get the on-chain SVG from the token URI.
+ * Falls back to client-side generation if the contract is pending or URI fails.
+ */
+async function getOnChainSVG(tokenId) {
+    try {
+        const uri = await getTokenURI(tokenId);
+        if (!uri) return null;
+
+        // The URI is usually "data:application/json;utf8,{...}" or base64
+        let json;
+        if (uri.startsWith('data:application/json;utf8,')) {
+            const jsonStr = decodeURIComponent(uri.replace('data:application/json;utf8,', ''));
+            json = JSON.parse(jsonStr);
+        } else if (uri.startsWith('data:application/json;base64,')) {
+            const base64Str = uri.replace('data:application/json;base64,', '');
+            json = JSON.parse(atob(base64Str));
+        } else if (uri.startsWith('data:application/json,')) {
+            const jsonStr = decodeURIComponent(uri.replace('data:application/json,', ''));
+            json = JSON.parse(jsonStr);
+        }
+
+        if (json && json.image) {
+            // image is likely "data:image/svg+xml;utf8,<svg..."
+            if (json.image.startsWith('data:image/svg+xml;utf8,')) {
+                return decodeURIComponent(json.image.replace('data:image/svg+xml;utf8,', ''));
+            } else if (json.image.startsWith('data:image/svg+xml;base64,')) {
+                return atob(json.image.replace('data:image/svg+xml;base64,', ''));
+            } else if (json.image.startsWith('data:image/svg+xml,')) {
+                return decodeURIComponent(json.image.replace('data:image/svg+xml,', ''));
+            }
+            return json.image; // Raw string
+        }
+    } catch (e) {
+        console.warn(`Could not fetch on-chain SVG for ${tokenId}, using local generator.`, e);
+    }
+    return null;
+}
+
 // Render user's collection
 function renderCollection() {
     const container = document.getElementById('collection-container');
@@ -179,22 +218,27 @@ function renderCollection() {
 
     container.innerHTML = '';
 
-    uiState.userTokens.forEach(tokenId => {
-        const svg = generateSVGFromTokenId(tokenId);
-
+    uiState.userTokens.forEach(async tokenId => {
+        // Create skeleton/placeholder with local preview
         const tokenEl = document.createElement('div');
         tokenEl.className = 'token-card';
         tokenEl.innerHTML = `
-            <div class="token-svg">${svg}</div>
+            <div class="token-svg">${generateSVGFromTokenId(tokenId)}</div>
             <div class="token-id">${utils.formatTokenId(tokenId)}</div>
         `;
+        container.appendChild(tokenEl);
+
+        // Try to replace with actual on-chain SVG
+        const onChainSvg = await getOnChainSVG(tokenId);
+        if (onChainSvg) {
+            const svgContainer = tokenEl.querySelector('.token-svg');
+            if (svgContainer) svgContainer.innerHTML = onChainSvg;
+        }
 
         // Click to view in explorer
         tokenEl.addEventListener('click', () => {
             viewToken(tokenId);
         });
-
-        container.appendChild(tokenEl);
     });
 }
 
@@ -255,20 +299,32 @@ function handleViewToken() {
 }
 
 // View specific token
-function viewToken(tokenId) {
+async function viewToken(tokenId) {
     const display = document.getElementById('token-display');
     if (!display) return;
 
-    const svg = generateSVGFromTokenId(tokenId);
-
+    // Show initial local version immediately
+    const localSvg = generateSVGFromTokenId(tokenId);
     display.innerHTML = `
         <div class="token-viewer">
             <h3>${utils.formatTokenId(tokenId)}</h3>
-            <div class="token-svg-large">${svg}</div>
+            <div class="token-svg-large">${localSvg}</div>
+            <div class="token-metadata-status">Loading on-chain metadata...</div>
         </div>
     `;
-
     display.classList.remove('hidden');
+
+    // Try to fetch on-chain version
+    const onChainSvg = await getOnChainSVG(tokenId);
+    if (onChainSvg) {
+        const largeContainer = display.querySelector('.token-svg-large');
+        const metaStatus = display.querySelector('.token-metadata-status');
+        if (largeContainer) largeContainer.innerHTML = onChainSvg;
+        if (metaStatus) metaStatus.textContent = 'Verified On-Chain Artwork';
+    } else {
+        const metaStatus = display.querySelector('.token-metadata-status');
+        if (metaStatus) metaStatus.textContent = 'Using Preview (Pending Indexer)';
+    }
 }
 
 // Show/hide loading state
@@ -317,4 +373,3 @@ function updateNetworkBadge() {
         priceDisplay.textContent = CONFIG.MIN_FEE_DISPLAY;
     }
 }
-
