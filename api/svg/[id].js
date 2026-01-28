@@ -1,5 +1,8 @@
 // API endpoint: /api/svg/[id].js
 // Fetches on-chain SVG from the contract and serves it as image/svg+xml
+// Uses proper Clarity value encoding
+
+import { uintCV, cvToHex } from '@stacks/transactions';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -14,10 +17,17 @@ export default async function handler(req, res) {
     // Determine network and contract from environment or defaults
     const network = process.env.NETWORK || 'testnet';
     const contractAddress = process.env.CONTRACT_ADDRESS || 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ';
-    const contractName = process.env.CONTRACT_NAME || 'voidmasks';
+    const contractName = process.env.CONTRACT_NAME || 'voidmasks3';
     const stacksApi = network === 'mainnet' 
       ? 'https://api.mainnet.hiro.so'
       : 'https://api.testnet.hiro.so';
+
+    // Encode the token ID as a Clarity uint using cvToHex
+    const tokenIdArg = cvToHex(uintCV(tokenId));
+
+    console.log('Fetching SVG for token:', tokenId);
+    console.log('Contract:', `${contractAddress}.${contractName}`);
+    console.log('Token ID argument (hex):', tokenIdArg);
 
     // Call contract's get-svg function
     const response = await fetch(
@@ -27,34 +37,37 @@ export default async function handler(req, res) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sender: 'SP000000000000000000002Q6VF78',
-          arguments: [`0x${tokenId.toString(16).padStart(32, '0')}`]
+          arguments: [tokenIdArg]
         })
       }
     );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Contract call failed:', response.status, errorText);
       throw new Error(`Contract call failed: ${response.statusText}`);
     }
 
     const data = await response.json();
 
     // Extract SVG string from response
-    // The response format is typically: (ok "svg_string_here")
     let svgContent = '';
     
     if (data.result) {
-      // Try to extract from text format: (ok "...")
-      const textMatch = data.result.match(/"(.*)"/s);
-      if (textMatch) {
-        svgContent = decodeURIComponent(textMatch[1]);
-      } else {
-        // If that fails, use the whole result
-        svgContent = data.result;
+      // The result is a Clarity string wrapped in quotes
+      // Extract the content between quotes
+      const match = data.result.match(/"([^"]*)"/);
+      if (match && match[1]) {
+        svgContent = match[1];
+        
+        // Decode URL-encoded characters that Clarity uses
+        svgContent = decodeURIComponent(svgContent.replace(/\+/g, ' '));
       }
     }
 
     // Ensure we have valid SVG
     if (!svgContent || !svgContent.includes('<svg')) {
+      console.error('Invalid SVG content. Raw result:', data.result?.substring(0, 200));
       throw new Error('Invalid SVG response from contract');
     }
 
