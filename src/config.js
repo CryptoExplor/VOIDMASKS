@@ -67,9 +67,8 @@ export const utils = {
 
     // Format token ID
     formatTokenId(tokenId) {
-        return `#${tokenId.toString().padStart(4, '0')}`;
+        return `#${tokenId}`;
     }
 };
-
 
 
