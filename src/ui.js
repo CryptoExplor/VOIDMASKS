@@ -263,7 +263,7 @@ function viewToken(tokenId) {
 
     display.innerHTML = `
         <div class="token-viewer">
-            <h3>Token ${utils.formatTokenId(tokenId)}</h3>
+            <h3>${utils.formatTokenId(tokenId)}</h3>
             <div class="token-svg-large">${svg}</div>
         </div>
     `;
@@ -317,3 +317,4 @@ function updateNetworkBadge() {
         priceDisplay.textContent = CONFIG.MIN_FEE_DISPLAY;
     }
 }
+
