@@ -1,7 +1,10 @@
 import { CONFIG, utils } from './config.js';
 import { updateUIState } from './ui.js';
-import { mintNFT } from './contract.js';
-import { bytesToHex } from '@stacks/common';
+import { STACKS_MAINNET, STACKS_TESTNET } from '@stacks/network';
+import {
+  AnchorMode,
+  PostConditionMode,
+} from '@stacks/transactions';
 
 // Global wallet state
 let walletState = {
@@ -122,7 +125,7 @@ async function connectLeather() {
                 network: CONFIG.NETWORK
             };
 
-            saveWalletState(); // Save to localStorage
+            saveWalletState();
             updateUIState('connected', walletState);
             console.log(`Connected to Leather wallet (${CONFIG.NETWORK}):`, address);
         }
@@ -166,7 +169,7 @@ async function connectXverse() {
                 network: CONFIG.NETWORK
             };
 
-            saveWalletState(); // Save to localStorage
+            saveWalletState();
             updateUIState('connected', walletState);
             console.log(`Connected to Xverse wallet (${CONFIG.NETWORK}):`, address);
         }
@@ -183,7 +186,7 @@ export function disconnectWallet() {
         provider: null
     };
 
-    clearWalletState(); // Clear from localStorage
+    clearWalletState();
     updateUIState('disconnected');
     console.log('Wallet disconnected');
 }
@@ -193,164 +196,120 @@ export function getWalletState() {
     return { ...walletState };
 }
 
-// Execute mint transaction
+// Execute mint transaction - USES WALLET NATIVE APIs
 export async function executeMint() {
     if (!walletState.isConnected) {
         throw new Error('Wallet not connected');
     }
 
     try {
-        const result = await mintNFT(walletState.address, walletState.provider);
-        return result;
+        console.log('=== EXECUTING MINT ===');
+        console.log('Wallet:', walletState.provider);
+        console.log('Address:', walletState.address);
+        console.log('Network:', CONFIG.NETWORK);
+
+        // Parse contract address
+        const contractParts = CONFIG.CONTRACT_ADDRESS.includes('.') 
+            ? CONFIG.CONTRACT_ADDRESS.split('.')
+            : [CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_NAME];
+
+        const contractAddress = contractParts[0];
+        const contractName = contractParts[1];
+
+        console.log('Contract:', `${contractAddress}.${contractName}`);
+
+        // Sign with appropriate wallet
+        let txId;
+        if (walletState.provider === 'leather') {
+            txId = await signWithLeather(contractAddress, contractName);
+        } else if (walletState.provider === 'xverse') {
+            txId = await signWithXverse(contractAddress, contractName);
+        } else {
+            throw new Error('Unknown wallet provider');
+        }
+
+        return { success: true, txId };
     } catch (error) {
-        console.error('Mint transaction failed:', error);
+        console.error('Mint execution failed:', error);
         throw error;
     }
 }
 
-// Sign and broadcast transaction - COMPLETELY REWRITTEN
-export async function signTransaction(transaction, provider) {
+// Sign with Leather - USES LEATHER'S NATIVE API
+async function signWithLeather(contractAddress, contractName) {
     try {
-        console.log('=== SIGNING TRANSACTION ===');
-        console.log('Provider:', provider);
-        console.log('Transaction:', transaction);
+        console.log('Requesting Leather to sign transaction...');
 
-        if (provider === 'leather') {
-            return await signWithLeather(transaction);
-        } else if (provider === 'xverse') {
-            return await signWithXverse(transaction);
-        } else {
-            throw new Error(`Unsupported provider: ${provider}`);
-        }
-
-    } catch (error) {
-        console.error('=== SIGNING ERROR ===');
-        console.error('Error:', error);
-        console.error('Stack:', error.stack);
-        throw new Error(`Transaction signing failed: ${error.message}`);
-    }
-}
-
-// Sign with Leather wallet
-async function signWithLeather(transaction) {
-    try {
-        console.log('Signing with Leather...');
-        
-        // Serialize transaction to hex - using statically imported bytesToHex
-        const txBytes = transaction.serialize();
-        const txHex = bytesToHex(txBytes);
-        
-        console.log('Transaction serialized to hex');
-        console.log('Hex length:', txHex.length);
-
-        // Request signature from Leather
-        const response = await window.LeatherProvider.request('stx_signTransaction', {
-            txHex: txHex,
-            network: CONFIG.NETWORK
+        // Leather's stx_callContract method
+        const result = await window.LeatherProvider.request('stx_callContract', {
+            contractAddress: contractAddress,
+            contractName: contractName,
+            functionName: 'mint',
+            functionArgs: [],
+            network: CONFIG.NETWORK,
+            postConditions: [],
         });
 
-        console.log('Leather response:', response);
+        console.log('Leather response:', result);
 
-        if (!response || !response.result) {
+        if (!result || !result.result) {
             throw new Error('No response from Leather wallet');
         }
 
-        // Get signed transaction hex
-        const signedTxHex = response.result.txHex || response.result;
-        
-        console.log('Got signed transaction, broadcasting...');
+        // Extract transaction ID
+        const txId = result.result.txId || result.result.txid || result.result;
+        console.log('Transaction ID:', txId);
 
-        // Broadcast the transaction
-        const txId = await broadcastTransaction(signedTxHex);
-        
-        console.log('Broadcast successful, txId:', txId);
-        
         return txId;
-
     } catch (error) {
         console.error('Leather signing error:', error);
-        throw error;
+        // Provide more helpful error message
+        if (error.message.includes('User rejected')) {
+            throw new Error('Transaction cancelled by user');
+        }
+        throw new Error(`Leather signing failed: ${error.message}`);
     }
 }
 
-// Sign with Xverse wallet
-async function signWithXverse(transaction) {
+// Sign with Xverse - USES XVERSE'S NATIVE API
+async function signWithXverse(contractAddress, contractName) {
     try {
-        console.log('Signing with Xverse...');
+        console.log('Requesting Xverse to sign transaction...');
 
-        // Xverse handles signing and broadcasting internally
-        const response = await window.XverseProviders.StacksProvider.request('stx_signTransaction', {
-            transaction: transaction,
-            network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+        // Xverse's stx_callContract method
+        const result = await window.XverseProviders.StacksProvider.request('stx_callContract', {
+            contractAddress: contractAddress,
+            contractName: contractName,
+            functionName: 'mint',
+            functionArgs: [],
+            network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
         });
 
-        console.log('Xverse response:', response);
+        console.log('Xverse response:', result);
 
-        if (!response || !response.result) {
+        if (!result || !result.result) {
             throw new Error('No response from Xverse wallet');
         }
 
-        // Xverse typically returns the txId directly after broadcasting
-        const txId = response.result.txid || response.result.txId || response.result;
-        
-        console.log('Transaction signed and broadcast by Xverse, txId:', txId);
-        
-        return txId;
+        // Extract transaction ID
+        const txId = result.result.txid || result.result.txId || result.result;
+        console.log('Transaction ID:', txId);
 
+        return txId;
     } catch (error) {
         console.error('Xverse signing error:', error);
-        throw error;
-    }
-}
-
-// Broadcast transaction to the network
-async function broadcastTransaction(txHex) {
-    try {
-        console.log('Broadcasting transaction...');
-        console.log('API endpoint:', `${CONFIG.STACKS_API}/v2/transactions`);
-
-        // Convert hex to bytes
-        const txBytes = hexToBytes(txHex);
-        
-        const response = await fetch(`${CONFIG.STACKS_API}/v2/transactions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/octet-stream'
-            },
-            body: txBytes
-        });
-
-        console.log('Broadcast response status:', response.status);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Broadcast error response:', errorText);
-            throw new Error(`Broadcast failed: ${errorText}`);
+        // Provide more helpful error message
+        if (error.message.includes('User rejected')) {
+            throw new Error('Transaction cancelled by user');
         }
-
-        const txId = await response.text();
-        // Remove quotes if present
-        const cleanTxId = txId.replace(/"/g, '').trim();
-        
-        console.log('Transaction broadcast successful');
-        console.log('Transaction ID:', cleanTxId);
-        
-        return cleanTxId;
-
-    } catch (error) {
-        console.error('Broadcast error:', error);
-        throw error;
+        throw new Error(`Xverse signing failed: ${error.message}`);
     }
 }
 
-// Helper: Convert hex string to Uint8Array
-function hexToBytes(hex) {
-    // Remove any 0x prefix
-    const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
-    
-    const bytes = new Uint8Array(cleanHex.length / 2);
-    for (let i = 0; i < cleanHex.length; i += 2) {
-        bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
-    }
-    return bytes;
+// Legacy function for compatibility with contract.js
+// This is kept for backwards compatibility but not used in the new flow
+export async function signTransaction(txOptions, senderAddress, provider) {
+    console.log('=== LEGACY SIGN TRANSACTION (NOT USED) ===');
+    console.log('Use executeMint() instead');
+    throw new Error('This function is deprecated. Use executeMint() instead.');
 }
