@@ -1,6 +1,5 @@
-// API endpoint: /api/svg/[id].js
-// Fetches on-chain SVG from the contract and serves it as image/svg+xml
-// Uses proper Clarity value encoding
+// API endpoint: /api/svg/[id].js - DIAGNOSTIC VERSION
+// This version will show us what the contract is actually returning
 
 import { uintCV, cvToHex } from '@stacks/transactions';
 
@@ -14,20 +13,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Determine network and contract from environment or defaults
+    // Get contract info from environment
     const network = process.env.NETWORK || 'testnet';
     const contractAddress = process.env.CONTRACT_ADDRESS || 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ';
-    const contractName = process.env.CONTRACT_NAME || 'test2'; // FIXED: Use correct contract name
+    const contractName = process.env.CONTRACT_NAME || 'test2';
     const stacksApi = network === 'mainnet' 
       ? 'https://api.mainnet.hiro.so'
       : 'https://api.testnet.hiro.so';
 
-    // Encode the token ID as a Clarity uint using cvToHex
+    // Encode the token ID
     const tokenIdArg = cvToHex(uintCV(tokenId));
 
-    console.log('Fetching SVG for token:', tokenId);
+    console.log('=== SVG FETCH DEBUG ===');
+    console.log('Token ID:', tokenId);
     console.log('Contract:', `${contractAddress}.${contractName}`);
-    console.log('Token ID argument (hex):', tokenIdArg);
+    console.log('Network:', network);
+    console.log('Token ID (hex):', tokenIdArg);
 
     // Call contract's get-svg function
     const response = await fetch(
@@ -45,70 +46,39 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Contract call failed:', response.status, errorText);
-      throw new Error(`Contract call failed: ${response.statusText}`);
+      
+      // Return diagnostic info
+      return res.status(200).json({
+        error: 'Contract call failed',
+        status: response.status,
+        message: errorText,
+        contractAddress,
+        contractName,
+        suggestion: 'Contract may not have get-svg function or was deployed incorrectly'
+      });
     }
 
     const data = await response.json();
-    console.log('Contract response:', JSON.stringify(data).substring(0, 200));
+    console.log('Raw contract response:', JSON.stringify(data, null, 2));
 
-    // Extract SVG string from response
-    let svgContent = '';
-    
-    if (data.result) {
-      // Try to extract from hex format first (0x...)
-      if (data.result.startsWith('0x')) {
-        try {
-          // Decode hex string
-          const hex = data.result.slice(2); // Remove 0x prefix
-          const bytes = hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16));
-          svgContent = String.fromCharCode(...bytes);
-          
-          // Remove Clarity string wrapper if present
-          if (svgContent.startsWith('"') && svgContent.endsWith('"')) {
-            svgContent = svgContent.slice(1, -1);
-          }
-        } catch (hexError) {
-          console.error('Error parsing hex:', hexError);
-        }
-      }
-      
-      // Try text format if hex didn't work
-      if (!svgContent || !svgContent.includes('<svg')) {
-        const match = data.result.match(/"([^"]*)"/);
-        if (match && match[1]) {
-          svgContent = match[1];
-          
-          // Decode URL-encoded characters that Clarity uses
-          svgContent = svgContent.replace(/%23/g, '#')
-                                 .replace(/%27/g, "'")
-                                 .replace(/%3C/g, '<')
-                                 .replace(/%3E/g, '>')
-                                 .replace(/%20/g, ' ')
-                                 .replace(/\+/g, ' ');
-        }
-      }
-    }
-
-    // Ensure we have valid SVG
-    if (!svgContent || !svgContent.includes('<svg')) {
-      console.error('Invalid SVG content. Raw result:', data.result?.substring(0, 200));
-      console.error('Extracted SVG:', svgContent);
-      throw new Error('Invalid SVG response from contract');
-    }
-
-    // Set appropriate headers
-    res.setHeader('Content-Type', 'image/svg+xml');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    // Return SVG
-    res.status(200).send(svgContent);
+    // If we get here, return diagnostic info
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({
+      debug: 'Contract response received',
+      contractAddress,
+      contractName,
+      tokenId,
+      rawResponse: data,
+      resultPreview: data.result?.substring(0, 500),
+      suggestion: 'Check if result contains valid SVG string'
+    });
 
   } catch (error) {
-    console.error('Error fetching SVG:', error);
+    console.error('Error:', error);
     res.status(500).json({ 
       error: 'Failed to fetch SVG from contract',
-      details: error.message 
+      details: error.message,
+      stack: error.stack
     });
   }
 }
