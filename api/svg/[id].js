@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     // Determine network and contract from environment or defaults
     const network = process.env.NETWORK || 'testnet';
     const contractAddress = process.env.CONTRACT_ADDRESS || 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ';
-    const contractName = process.env.CONTRACT_NAME || 'test1'; // FIXED: Use correct contract name
+    const contractName = process.env.CONTRACT_NAME || 'test2'; // FIXED: Use correct contract name
     const stacksApi = network === 'mainnet' 
       ? 'https://api.mainnet.hiro.so'
       : 'https://api.testnet.hiro.so';
