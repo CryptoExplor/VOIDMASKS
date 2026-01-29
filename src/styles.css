@@ -468,10 +468,12 @@ button:disabled:hover {
     margin-bottom: var(--spacing-sm);
 }
 
-.token-svg svg {
+.token-svg svg,
+.token-svg img {
     width: 100%;
     height: 100%;
     border-radius: var(--radius-sm);
+    object-fit: contain;
 }
 
 .token-id {
@@ -482,6 +484,10 @@ button:disabled:hover {
     font-size: 0.875rem;
     color: var(--color-accent-tertiary);
     font-weight: 600;
+}
+
+img.fallback {
+    filter: grayscale(0.6) opacity(0.5);
 }
 
 .empty-state {
@@ -541,10 +547,12 @@ button:disabled:hover {
     border-radius: var(--radius-md);
 }
 
-.token-svg-large svg {
+.token-svg-large svg,
+.token-svg-large img {
     width: 100%;
     height: auto;
     border-radius: var(--radius-sm);
+    object-fit: contain;
 }
 
 /* === FOOTER === */
