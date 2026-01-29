@@ -65,12 +65,12 @@ function setupEventListeners() {
 // Handle network switch
 async function handleNetworkSwitch() {
     const wallet = getWalletState();
-    
+
     // If wallet is connected, disconnect first
     if (wallet.isConnected) {
         const confirmed = confirm('Switching networks will disconnect your wallet. Continue?');
         if (!confirmed) return;
-        
+
         disconnectWallet();
     }
 
@@ -180,12 +180,19 @@ function renderCollection() {
     container.innerHTML = '';
 
     uiState.userTokens.forEach(tokenId => {
-        const svg = generateSVGFromTokenId(tokenId);
+        // Fallback SVG data URI if API fails
+        const fallbackSvg = generateSVGFromTokenId(tokenId);
+        const fallbackDataUri = `data:image/svg+xml;base64,${btoa(fallbackSvg)}`;
 
         const tokenEl = document.createElement('div');
         tokenEl.className = 'token-card';
         tokenEl.innerHTML = `
-            <div class="token-svg">${svg}</div>
+            <div class="token-svg">
+                <img src="/api/svg/${tokenId}" 
+                     alt="VOIDMASK ${tokenId}" 
+                     loading="lazy"
+                     onerror="this.onerror=null; this.src='${fallbackDataUri}'; this.classList.add('fallback');" />
+            </div>
             <div class="token-id">${utils.formatTokenId(tokenId)}</div>
         `;
 
@@ -259,12 +266,18 @@ function viewToken(tokenId) {
     const display = document.getElementById('token-display');
     if (!display) return;
 
-    const svg = generateSVGFromTokenId(tokenId);
+    // Fallback SVG data URI if API fails
+    const fallbackSvg = generateSVGFromTokenId(tokenId);
+    const fallbackDataUri = `data:image/svg+xml;base64,${btoa(fallbackSvg)}`;
 
     display.innerHTML = `
         <div class="token-viewer">
             <h3>${utils.formatTokenId(tokenId)}</h3>
-            <div class="token-svg-large">${svg}</div>
+            <div class="token-svg-large">
+                <img src="/api/svg/${tokenId}" 
+                     alt="VOIDMASK ${tokenId}" 
+                     onerror="this.onerror=null; this.src='${fallbackDataUri}'; this.classList.add('fallback');" />
+            </div>
         </div>
     `;
 
