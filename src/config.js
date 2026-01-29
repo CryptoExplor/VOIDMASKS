@@ -4,7 +4,7 @@ const NETWORKS = {
         NETWORK: 'testnet',
         // Contract address is just the deployer address
         CONTRACT_ADDRESS: 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ',
-        CONTRACT_NAME: 'test2',
+        CONTRACT_NAME: 'test1',
         STACKS_API: 'https://api.testnet.hiro.so',
         MINT_FEE: 0, // Free
         MIN_FEE_DISPLAY: 'Free'
