@@ -1,83 +1,30 @@
-// API endpoint: /api/svg/[id].js - WITH FALLBACK
-// Tries contract first, falls back to client-side generation
+// API endpoint: /api/svg/[id].js
+// Properly decodes Clarity hex-encoded SVG strings
 
 import { uintCV, cvToHex } from '@stacks/transactions';
 
-// SVG Generation fallback (same as frontend)
-function hashTokenId(tokenId, salt = 0) {
-  const combined = (tokenId * 2654435761 + salt) % 4294967296;
-  return Math.abs(combined);
-}
-
-function generateColor(tokenId, component = 0) {
-  const seed = hashTokenId(tokenId, component);
-  const r = (seed >> 16) & 0xFF;
-  const g = (seed >> 8) & 0xFF;
-  const b = seed & 0xFF;
-  return `rgb(${r},${g},${b})`;
-}
-
-function generateSVGFallback(tokenId) {
-  const canvasSize = 400;
-  const centerX = canvasSize / 2;
-  const centerY = canvasSize / 2;
-  const baseSize = 120;
-  
-  const backgroundColor = generateColor(tokenId, 0);
-  const shapeColor = generateColor(tokenId, 1);
-  const pattern = hashTokenId(tokenId, 2) % 5;
-  const sizeMod = 0.8 + (hashTokenId(tokenId, 3) % 20) / 100;
-  const size = baseSize * sizeMod;
-  
-  let mainShape = '';
-  if (pattern === 0) {
-    mainShape = `<circle cx="${centerX}" cy="${centerY}" r="${size}" fill="${shapeColor}" opacity="0.8"/>`;
-  } else if (pattern === 1) {
-    const h = size * Math.sqrt(3) / 2;
-    mainShape = `<polygon points="${centerX},${centerY - h/2} ${centerX - size/2},${centerY + h/2} ${centerX + size/2},${centerY + h/2}" fill="${shapeColor}" opacity="0.8"/>`;
-  } else if (pattern === 2) {
-    mainShape = `<rect x="${centerX - size/2}" y="${centerY - size/2}" width="${size}" height="${size}" fill="${shapeColor}" opacity="0.8"/>`;
-  } else if (pattern === 3) {
-    mainShape = `<polygon points="${centerX},${centerY - size} ${centerX + size},${centerY} ${centerX},${centerY + size} ${centerX - size},${centerY}" fill="${shapeColor}" opacity="0.8"/>`;
-  } else {
-    const thick = size / 3;
-    mainShape = `<rect x="${centerX - thick/2}" y="${centerY - size}" width="${thick}" height="${size * 2}" fill="${shapeColor}" opacity="0.8"/><rect x="${centerX - size}" y="${centerY - thick/2}" width="${size * 2}" height="${thick}" fill="${shapeColor}" opacity="0.8"/>`;
-  }
-  
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasSize} ${canvasSize}" width="${canvasSize}" height="${canvasSize}">
-    <rect width="${canvasSize}" height="${canvasSize}" fill="${backgroundColor}"/>
-    ${mainShape}
-    <defs>
-      <radialGradient id="mask-${tokenId}" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="white" stop-opacity="0"/>
-        <stop offset="70%" stop-color="white" stop-opacity="0.1"/>
-        <stop offset="100%" stop-color="black" stop-opacity="0.3"/>
-      </radialGradient>
-    </defs>
-    <rect x="0" y="0" width="${canvasSize}" height="${canvasSize}" fill="url(#mask-${tokenId})"/>
-  </svg>`;
-}
-
 export default async function handler(req, res) {
   const { id } = req.query;
+
+  // Validate token ID
   const tokenId = parseInt(id);
-  
   if (isNaN(tokenId) || tokenId < 1) {
     return res.status(400).json({ error: 'Invalid token ID' });
   }
 
-  // Try to get from contract first
   try {
+    // Get configuration
     const network = process.env.NETWORK || 'testnet';
     const contractAddress = process.env.CONTRACT_ADDRESS || 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ';
-    const contractName = process.env.CONTRACT_NAME || 'test1';
+    const contractName = process.env.CONTRACT_NAME || 'test2';
     const stacksApi = network === 'mainnet' 
       ? 'https://api.mainnet.hiro.so'
       : 'https://api.testnet.hiro.so';
 
+    // Encode token ID
     const tokenIdArg = cvToHex(uintCV(tokenId));
 
-    console.log('Attempting to fetch SVG from contract...');
+    // Call contract's get-svg function
     const response = await fetch(
       `${stacksApi}/v2/contracts/call-read/${contractAddress}/${contractName}/get-svg`,
       {
@@ -90,64 +37,80 @@ export default async function handler(req, res) {
       }
     );
 
-    if (response.ok) {
-      const data = await response.json();
-      
-      if (data.result) {
-        let svgContent = '';
-        
-        // Try hex format
-        if (data.result.startsWith('0x')) {
-          try {
-            const hex = data.result.slice(2);
-            const bytes = hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16));
-            svgContent = String.fromCharCode(...bytes.filter(b => b > 0));
-            
-            if (svgContent.startsWith('"')) svgContent = svgContent.slice(1);
-            if (svgContent.endsWith('"')) svgContent = svgContent.slice(0, -1);
-          } catch (e) {
-            console.error('Hex parse error:', e);
-          }
-        }
-        
-        // Try text format
-        if (!svgContent || !svgContent.includes('<svg')) {
-          const match = data.result.match(/"([^"]*)"/);
-          if (match && match[1]) {
-            svgContent = match[1]
-              .replace(/%23/g, '#')
-              .replace(/%27/g, "'")
-              .replace(/%3C/g, '<')
-              .replace(/%3E/g, '>')
-              .replace(/\+/g, ' ');
-          }
-        }
-        
-        // If we got valid SVG, return it
-        if (svgContent && svgContent.includes('<svg')) {
-          console.log('Successfully fetched SVG from contract');
-          res.setHeader('Content-Type', 'image/svg+xml');
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          return res.status(200).send(svgContent);
-        }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Contract call failed:', response.status, errorText);
+      throw new Error(`Contract call failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Check if call was successful
+    if (!data.okay || !data.result) {
+      throw new Error('Contract returned unsuccessful response');
+    }
+
+    // Decode the hex string
+    const hexString = data.result;
+    
+    if (!hexString.startsWith('0x')) {
+      throw new Error('Invalid hex format from contract');
+    }
+
+    // Remove 0x prefix
+    const hex = hexString.slice(2);
+    
+    // Clarity strings are prefixed with type info (0x0d for string-ascii)
+    // Skip the first few bytes which are Clarity type metadata
+    // The actual string data starts after the length prefix
+    
+    let svgContent = '';
+    let startIndex = 0;
+    
+    // Find where the actual SVG content starts (look for '<')
+    for (let i = 0; i < hex.length; i += 2) {
+      const byte = parseInt(hex.substr(i, 2), 16);
+      if (byte === 0x3C) { // '<' character
+        startIndex = i;
+        break;
       }
     }
     
-    // If we get here, contract call failed or returned invalid data
-    console.log('Contract call failed or returned invalid data, using fallback...');
-    
-  } catch (error) {
-    console.error('Contract error:', error.message);
-  }
+    // Decode from that point
+    for (let i = startIndex; i < hex.length; i += 2) {
+      const byte = parseInt(hex.substr(i, 2), 16);
+      if (byte > 0) { // Skip null bytes
+        svgContent += String.fromCharCode(byte);
+      }
+    }
 
-  // FALLBACK: Generate SVG client-side
-  console.log('Using client-side SVG generation for token', tokenId);
-  const svg = generateSVGFallback(tokenId);
-  
-  res.setHeader('Content-Type', 'image/svg+xml');
-  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('X-SVG-Source', 'fallback'); // Indicates this was generated, not from contract
-  res.status(200).send(svg);
+    // Validate we got valid SVG
+    if (!svgContent || !svgContent.includes('<svg')) {
+      throw new Error('Decoded content is not valid SVG');
+    }
+
+    // URL-decode any encoded characters (like %23 for #)
+    svgContent = svgContent
+      .replace(/%23/g, '#')
+      .replace(/%27/g, "'")
+      .replace(/%22/g, '"')
+      .replace(/%3C/g, '<')
+      .replace(/%3E/g, '>')
+      .replace(/%20/g, ' ')
+      .replace(/%2F/g, '/')
+      .replace(/%3D/g, '=');
+
+    // Return SVG
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.status(200).send(svgContent);
+
+  } catch (error) {
+    console.error('Error fetching SVG:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch SVG from contract',
+      details: error.message 
+    });
+  }
 }
