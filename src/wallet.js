@@ -1,28 +1,25 @@
-import { CONFIG, utils } from './config.js';
+import { CONFIG } from './config.js';
 import { updateUIState } from './ui.js';
-import { STACKS_MAINNET, STACKS_TESTNET } from '@stacks/network';
-import {
-  AnchorMode,
-  PostConditionMode,
-} from '@stacks/transactions';
 
-// Global wallet state
+// ============================================
+// WALLET STATE (trust local until reconnect)
+// ============================================
+
 let walletState = {
     isConnected: false,
     address: null,
     provider: null
 };
 
-// Storage keys
-const STORAGE_KEYS = {
-    WALLET_STATE: 'voidmasks_wallet_state',
-    NETWORK: 'voidmasks_network'
-};
+const STORAGE_KEY = 'voidmasks_wallet_state';
 
-// Load wallet state from localStorage
+// ============================================
+// PERSISTENCE (localStorage)
+// ============================================
+
 function loadWalletState() {
     try {
-        const saved = localStorage.getItem(STORAGE_KEYS.WALLET_STATE);
+        const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
             // Only restore if network matches
@@ -36,36 +33,39 @@ function loadWalletState() {
     return null;
 }
 
-// Save wallet state to localStorage
 function saveWalletState() {
     try {
-        localStorage.setItem(STORAGE_KEYS.WALLET_STATE, JSON.stringify(walletState));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(walletState));
     } catch (error) {
         console.error('Failed to save wallet state:', error);
     }
 }
 
-// Clear wallet state from localStorage
 function clearWalletState() {
     try {
-        localStorage.removeItem(STORAGE_KEYS.WALLET_STATE);
+        localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
         console.error('Failed to clear wallet state:', error);
     }
 }
 
-// Initialize wallet on page load
+// ============================================
+// INITIALIZATION (restore from localStorage)
+// ============================================
+
 export function initializeWallet() {
     const savedState = loadWalletState();
     if (savedState && savedState.isConnected) {
         walletState = savedState;
         updateUIState('connected', walletState);
-        console.log('Restored wallet connection:', walletState.address);
-        console.log('💡 If you switch accounts in your wallet, please disconnect and reconnect.');
+        console.log('✅ Restored wallet:', walletState.address);
     }
 }
 
-// Check if wallet is installed
+// ============================================
+// WALLET DETECTION
+// ============================================
+
 export function isWalletInstalled(walletType) {
     switch (walletType) {
         case 'leather':
@@ -77,75 +77,69 @@ export function isWalletInstalled(walletType) {
     }
 }
 
-// Connect to wallet
+// ============================================
+// CONNECT WALLET (ask once, trust thereafter)
+// ============================================
+
 export async function connectWallet() {
     try {
-        // Try Leather first
         if (isWalletInstalled('leather')) {
             await connectLeather();
         } else if (isWalletInstalled('xverse')) {
             await connectXverse();
         } else {
-            throw new Error('No supported wallet found. Please install Leather or Xverse wallet.');
+            throw new Error('No supported wallet found. Please install Leather or Xverse.');
         }
     } catch (error) {
-        console.error('Wallet connection failed:', error);
+        console.error('❌ Connection failed:', error);
         alert(`Connection failed: ${error.message}`);
     }
 }
 
-// Connect to Leather wallet
+// Connect to Leather
 async function connectLeather() {
     const provider = window.LeatherProvider;
-
     if (!provider) {
         throw new Error('Leather wallet not found');
     }
 
     try {
-        // Request Stacks addresses with network specification
         const response = await provider.request('getAddresses', {
             network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
         });
 
         if (response.result) {
             const addresses = response.result.addresses;
-            // Get the Stacks address (not Bitcoin)
             const stacksAddress = addresses.find(addr => addr.type === 'stacks' || addr.symbol === 'STX');
 
             if (!stacksAddress) {
-                throw new Error('No Stacks address found. Please ensure you are connected to the Stacks network.');
+                throw new Error('No Stacks address found');
             }
-
-            const address = stacksAddress.address;
 
             walletState = {
                 isConnected: true,
-                address: address,
+                address: stacksAddress.address,
                 provider: 'leather',
                 network: CONFIG.NETWORK
             };
 
             saveWalletState();
             updateUIState('connected', walletState);
-            console.log(`Connected to Leather wallet (${CONFIG.NETWORK}):`, address);
-            console.log('💡 If you switch accounts, please disconnect and reconnect.');
+            console.log('✅ Connected (Leather):', stacksAddress.address);
         }
     } catch (error) {
         throw new Error(`Leather connection failed: ${error.message}`);
     }
 }
 
-// Connect to Xverse wallet
+// Connect to Xverse
 async function connectXverse() {
     const provider = window.XverseProviders?.StacksProvider;
-
     if (!provider) {
         throw new Error('Xverse wallet not found');
     }
 
     try {
-        // Request addresses with proper network configuration
         const response = await provider.request('getAddresses', {
             purposes: ['stacks'],
             message: 'Connect to VOIDMASKS',
@@ -155,33 +149,32 @@ async function connectXverse() {
         });
 
         if (response && response.addresses) {
-            // Get the Stacks address
             const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
 
             if (!stacksAddr) {
-                throw new Error('No Stacks address found in Xverse response.');
+                throw new Error('No Stacks address found');
             }
-
-            const address = stacksAddr.address;
 
             walletState = {
                 isConnected: true,
-                address: address,
+                address: stacksAddr.address,
                 provider: 'xverse',
                 network: CONFIG.NETWORK
             };
 
             saveWalletState();
             updateUIState('connected', walletState);
-            console.log(`Connected to Xverse wallet (${CONFIG.NETWORK}):`, address);
-            console.log('💡 If you switch accounts, please disconnect and reconnect.');
+            console.log('✅ Connected (Xverse):', stacksAddr.address);
         }
     } catch (error) {
         throw new Error(`Xverse connection failed: ${error.message}`);
     }
 }
 
-// Disconnect wallet
+// ============================================
+// DISCONNECT
+// ============================================
+
 export function disconnectWallet() {
     walletState = {
         isConnected: false,
@@ -191,27 +184,33 @@ export function disconnectWallet() {
 
     clearWalletState();
     updateUIState('disconnected');
-    console.log('Wallet disconnected');
+    console.log('🔌 Wallet disconnected');
 }
 
-// Get current wallet state
+// ============================================
+// STATE GETTER
+// ============================================
+
 export function getWalletState() {
     return { ...walletState };
 }
 
-// Execute mint transaction - USES WALLET NATIVE APIs
+// ============================================
+// MINT / SIGN TRANSACTION
+// ============================================
+
 export async function executeMint() {
     if (!walletState.isConnected) {
         throw new Error('Wallet not connected');
     }
 
     try {
-        console.log('=== EXECUTING MINT ===');
+        console.log('🎨 Minting NFT...');
         console.log('Wallet:', walletState.provider);
         console.log('Address:', walletState.address);
         console.log('Network:', CONFIG.NETWORK);
 
-        // Parse contract address - handle undefined gracefully
+        // Parse contract
         let contractAddress, contractName;
         
         if (!CONFIG.CONTRACT_ADDRESS) {
@@ -233,7 +232,7 @@ export async function executeMint() {
 
         console.log('Contract:', `${contractAddress}.${contractName}`);
 
-        // Sign with appropriate wallet
+        // Sign transaction
         let txId;
         if (walletState.provider === 'leather') {
             txId = await signWithLeather(contractAddress, contractName);
@@ -243,82 +242,48 @@ export async function executeMint() {
             throw new Error('Unknown wallet provider');
         }
 
+        console.log('✅ Mint successful! TX:', txId);
         return { success: true, txId };
     } catch (error) {
-        console.error('Mint execution failed:', error);
+        console.error('❌ Mint failed:', error);
         throw error;
     }
 }
 
-// Sign with Leather - CORRECTED API FORMAT
+// Sign with Leather
 async function signWithLeather(contractAddress, contractName) {
     try {
-        console.log('Requesting Leather to sign transaction...');
-
-        // Leather expects "contract" as a single string in "ADDRESS.CONTRACT" format
         const contractId = `${contractAddress}.${contractName}`;
-        console.log('Contract ID:', contractId);
-
-        const requestPayload = {
-            contract: contractId,  // Combined format, not separate fields
+        
+        const result = await window.LeatherProvider.request('stx_callContract', {
+            contract: contractId,
             functionName: 'mint',
             functionArgs: [],
             network: CONFIG.NETWORK,
-        };
+        });
 
-        console.log('Request payload:', requestPayload);
-
-        // Leather's stx_callContract method
-        const result = await window.LeatherProvider.request('stx_callContract', requestPayload);
-
-        console.log('Leather response:', result);
-
-        // Check for JSON-RPC error response
         if (result && result.error) {
-            console.error('Leather returned error:', result.error);
-            const errorMessage = result.error.message || result.error.code || 'Unknown error from Leather';
-            throw new Error(errorMessage);
+            throw new Error(result.error.message || result.error.code || 'Leather error');
         }
 
         if (!result || !result.result) {
-            throw new Error('No response from Leather wallet');
+            throw new Error('No response from Leather');
         }
 
-        // Extract transaction ID
         const txId = result.result.txId || result.result.txid || result.result;
-        console.log('Transaction ID:', txId);
-
         return txId;
     } catch (error) {
-        console.error('Leather signing error:', error);
-        
-        // Handle different error types
-        if (error && typeof error === 'object') {
-            // JSON-RPC error object
-            if (error.error && error.error.message) {
-                throw new Error(`Leather error: ${error.error.message}`);
-            }
-            // Standard Error object
-            if (error.message) {
-                if (error.message.toLowerCase().includes('reject') || 
-                    error.message.toLowerCase().includes('cancel')) {
-                    throw new Error('Transaction cancelled by user');
-                }
-                throw new Error(`Leather signing failed: ${error.message}`);
-            }
+        if (error.message?.toLowerCase().includes('reject') || 
+            error.message?.toLowerCase().includes('cancel')) {
+            throw new Error('Transaction cancelled by user');
         }
-        
-        // Fallback for unknown error types
-        throw new Error('Leather signing failed: Unknown error');
+        throw new Error(`Leather signing failed: ${error.message}`);
     }
 }
 
-// Sign with Xverse - USES XVERSE'S NATIVE API WITH PROPER ERROR HANDLING
+// Sign with Xverse
 async function signWithXverse(contractAddress, contractName) {
     try {
-        console.log('Requesting Xverse to sign transaction...');
-
-        // Xverse's stx_callContract method
         const result = await window.XverseProviders.StacksProvider.request('stx_callContract', {
             contractAddress: contractAddress,
             contractName: contractName,
@@ -327,51 +292,29 @@ async function signWithXverse(contractAddress, contractName) {
             network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
         });
 
-        console.log('Xverse response:', result);
-
-        // Check for error response
         if (result && result.error) {
-            console.error('Xverse returned error:', result.error);
-            const errorMessage = result.error.message || result.error.code || 'Unknown error from Xverse';
-            throw new Error(errorMessage);
+            throw new Error(result.error.message || result.error.code || 'Xverse error');
         }
 
         if (!result || !result.result) {
-            throw new Error('No response from Xverse wallet');
+            throw new Error('No response from Xverse');
         }
 
-        // Extract transaction ID
         const txId = result.result.txid || result.result.txId || result.result;
-        console.log('Transaction ID:', txId);
-
         return txId;
     } catch (error) {
-        console.error('Xverse signing error:', error);
-        
-        // Handle different error types
-        if (error && typeof error === 'object') {
-            // JSON-RPC error object
-            if (error.error && error.error.message) {
-                throw new Error(`Xverse error: ${error.error.message}`);
-            }
-            // Standard Error object
-            if (error.message) {
-                if (error.message.toLowerCase().includes('reject') || 
-                    error.message.toLowerCase().includes('cancel')) {
-                    throw new Error('Transaction cancelled by user');
-                }
-                throw new Error(`Xverse signing failed: ${error.message}`);
-            }
+        if (error.message?.toLowerCase().includes('reject') || 
+            error.message?.toLowerCase().includes('cancel')) {
+            throw new Error('Transaction cancelled by user');
         }
-        
-        // Fallback for unknown error types
-        throw new Error('Xverse signing failed: Unknown error');
+        throw new Error(`Xverse signing failed: ${error.message}`);
     }
 }
 
-// Legacy function for compatibility with contract.js
-export async function signTransaction(txOptions, senderAddress, provider) {
-    console.log('=== LEGACY SIGN TRANSACTION (NOT USED) ===');
-    console.log('Use executeMint() instead');
-    throw new Error('This function is deprecated. Use executeMint() instead.');
+// ============================================
+// DEPRECATED (kept for compatibility)
+// ============================================
+
+export async function signTransaction() {
+    throw new Error('Deprecated. Use executeMint() instead.');
 }
