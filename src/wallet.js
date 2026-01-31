@@ -19,8 +19,8 @@ const STORAGE_KEYS = {
     NETWORK: 'voidmasks_network'
 };
 
-// Event listener cleanup functions
-let accountChangeListeners = [];
+// Address polling interval
+let addressCheckInterval = null;
 
 // Load wallet state from localStorage
 function loadWalletState() {
@@ -57,77 +57,82 @@ function clearWalletState() {
     }
 }
 
-// Handle account change
-async function handleAccountChange(newAddress) {
-    console.log('Account changed detected:', newAddress);
+// Get current address from wallet
+async function getCurrentAddressFromWallet() {
+    try {
+        if (walletState.provider === 'leather' && window.LeatherProvider) {
+            const response = await window.LeatherProvider.request('getAddresses', {
+                network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+            });
+            
+            if (response.result && response.result.addresses) {
+                const stacksAddress = response.result.addresses.find(
+                    addr => addr.type === 'stacks' || addr.symbol === 'STX'
+                );
+                return stacksAddress ? stacksAddress.address : null;
+            }
+        } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
+            const response = await window.XverseProviders.StacksProvider.request('getAddresses', {
+                purposes: ['stacks'],
+                message: 'Get current address',
+                network: {
+                    type: CONFIG.NETWORK === 'mainnet' ? 'Mainnet' : 'Testnet'
+                }
+            });
+            
+            if (response && response.addresses) {
+                const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
+                return stacksAddr ? stacksAddr.address : null;
+            }
+        }
+    } catch (error) {
+        console.error('Error getting current address:', error);
+        return null;
+    }
+    return null;
+}
+
+// Check if address has changed
+async function checkAddressChange() {
+    if (!walletState.isConnected) return;
     
-    if (!newAddress) {
-        console.log('No address provided, disconnecting...');
-        disconnectWallet();
-        return;
+    const currentAddress = await getCurrentAddressFromWallet();
+    
+    if (currentAddress && currentAddress !== walletState.address) {
+        console.log('🔄 Address changed detected!');
+        console.log('Old:', walletState.address);
+        console.log('New:', currentAddress);
+        
+        // Update wallet state
+        walletState.address = currentAddress;
+        saveWalletState();
+        
+        // Notify UI of change
+        updateUIState('connected', walletState);
+    }
+}
+
+// Start polling for address changes
+function startAddressPolling() {
+    if (addressCheckInterval) {
+        clearInterval(addressCheckInterval);
     }
     
-    // Update wallet state with new address
-    walletState.address = newAddress;
-    saveWalletState();
+    console.log('📡 Starting address polling...');
     
-    // Update UI with new address
-    updateUIState('connected', walletState);
-    
-    console.log('Wallet address updated to:', newAddress);
+    // Check every 3 seconds
+    addressCheckInterval = setInterval(() => {
+        checkAddressChange();
+    }, 3000);
 }
 
-// Setup account change listeners for Leather
-function setupLeatherListeners() {
-    if (!window.LeatherProvider) return;
-    
-    console.log('Setting up Leather account change listeners...');
-    
-    // Leather uses 'accountsChanged' event
-    const listener = async (event) => {
-        console.log('Leather accountsChanged event:', event);
-        
-        if (event.detail && event.detail.addresses) {
-            const stacksAddress = event.detail.addresses.find(
-                addr => addr.type === 'stacks' || addr.symbol === 'STX'
-            );
-            
-            if (stacksAddress) {
-                await handleAccountChange(stacksAddress.address);
-            }
-        }
-    };
-    
-    window.addEventListener('accountsChanged', listener);
-    accountChangeListeners.push(() => window.removeEventListener('accountsChanged', listener));
-}
-
-// Setup account change listeners for Xverse
-function setupXverseListeners() {
-    if (!window.XverseProviders?.StacksProvider) return;
-    
-    console.log('Setting up Xverse account change listeners...');
-    
-    // Xverse uses message events
-    const listener = async (event) => {
-        if (event.data && event.data.method === 'accountChange') {
-            console.log('Xverse account change event:', event.data);
-            
-            if (event.data.params && event.data.params.address) {
-                await handleAccountChange(event.data.params.address);
-            }
-        }
-    };
-    
-    window.addEventListener('message', listener);
-    accountChangeListeners.push(() => window.removeEventListener('message', listener));
-}
-
-// Cleanup all event listeners
-function cleanupListeners() {
-    console.log('Cleaning up wallet listeners...');
-    accountChangeListeners.forEach(cleanup => cleanup());
-    accountChangeListeners = [];
+// Stop polling for address changes
+function stopAddressPolling() {
+    if (addressCheckInterval) {
+        console.log('🛑 Stopping address polling...');
+        clearInterval(addressCheckInterval);
+        addressCheckInterval = null;
+    }
 }
 
 // Initialize wallet on page load
@@ -136,12 +141,8 @@ export function initializeWallet() {
     if (savedState && savedState.isConnected) {
         walletState = savedState;
         
-        // Setup listeners based on provider
-        if (savedState.provider === 'leather') {
-            setupLeatherListeners();
-        } else if (savedState.provider === 'xverse') {
-            setupXverseListeners();
-        }
+        // Start polling for address changes
+        startAddressPolling();
         
         updateUIState('connected', walletState);
         console.log('Restored wallet connection:', walletState.address);
@@ -211,8 +212,8 @@ async function connectLeather() {
 
             saveWalletState();
             
-            // Setup account change listeners
-            setupLeatherListeners();
+            // Start polling for address changes
+            startAddressPolling();
             
             updateUIState('connected', walletState);
             console.log(`Connected to Leather wallet (${CONFIG.NETWORK}):`, address);
@@ -259,8 +260,8 @@ async function connectXverse() {
 
             saveWalletState();
             
-            // Setup account change listeners
-            setupXverseListeners();
+            // Start polling for address changes
+            startAddressPolling();
             
             updateUIState('connected', walletState);
             console.log(`Connected to Xverse wallet (${CONFIG.NETWORK}):`, address);
@@ -272,8 +273,8 @@ async function connectXverse() {
 
 // Disconnect wallet
 export function disconnectWallet() {
-    // Cleanup listeners
-    cleanupListeners();
+    // Stop polling
+    stopAddressPolling();
     
     walletState = {
         isConnected: false,
