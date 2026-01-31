@@ -1,6 +1,7 @@
 /* ========================================
    VOIDMASKS - Schizocore NFT Collection
    Modern Dark Theme with Cyberpunk Aesthetics
+   UPDATED with SEO & Accessibility Enhancements
    ======================================== */
 
 /* === CSS VARIABLES === */
@@ -413,6 +414,15 @@ button:disabled:hover {
     font-family: var(--font-family-mono);
 }
 
+/* === MINT INFO (NEW) === */
+.mint-info {
+    margin-top: var(--spacing-sm);
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-family-mono);
+    font-style: italic;
+}
+
 /* === COLLECTION GRID === */
 .collection-grid {
     display: grid;
@@ -597,8 +607,25 @@ footer a:hover {
     text-transform: uppercase;
     letter-spacing: 1px;
     transform: translateY(-8px);
-    /* Slight lift to match title alignment */
     box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+}
+
+/* === COPYRIGHT (NEW) === */
+.copyright {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-sm);
+    opacity: 0.7;
+}
+
+.copyright a {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.copyright a:hover {
+    color: var(--color-accent-primary);
 }
 
 /* === UTILITY CLASSES === */
@@ -620,6 +647,85 @@ footer a:hover {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* === LOADING SKELETON (NEW) === */
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--color-bg-tertiary) 0%,
+        var(--color-bg-secondary) 50%,
+        var(--color-bg-tertiary) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+}
+
+/* === MESSAGE STATES (NEW) === */
+.error-message {
+    background: rgba(255, 51, 102, 0.1);
+    border: 1px solid var(--color-accent-danger);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    color: var(--color-accent-danger);
+    margin: var(--spacing-md) 0;
+    font-family: var(--font-family-mono);
+    font-size: 0.875rem;
+}
+
+.success-message {
+    background: rgba(0, 255, 136, 0.1);
+    border: 1px solid var(--color-accent-primary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    color: var(--color-accent-primary);
+    margin: var(--spacing-md) 0;
+    font-family: var(--font-family-mono);
+    font-size: 0.875rem;
+}
+
+/* === EXTERNAL LINK INDICATOR (NEW) === */
+a[target="_blank"]::after {
+    content: " ↗";
+    font-size: 0.8em;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+}
+
+a[target="_blank"]:hover::after {
+    opacity: 1;
+}
+
+/* === ACCESSIBILITY (NEW) === */
+.skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--color-accent-primary);
+    color: var(--color-bg-primary);
+    padding: 8px;
+    text-decoration: none;
+    z-index: 100;
+}
+
+.skip-to-content:focus {
+    top: 0;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
 }
 
 /* === RESPONSIVE DESIGN === */
@@ -664,7 +770,28 @@ footer a:hover {
     }
 }
 
-/* === ACCESSIBILITY === */
+/* === PRINT STYLES (NEW) === */
+@media print {
+    header,
+    footer,
+    .wallet-section,
+    .mint-section,
+    .network-controls {
+        display: none;
+    }
+    
+    body {
+        background: white;
+        color: black;
+    }
+    
+    .collection-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* === ACCESSIBILITY PREFERENCES (NEW) === */
 @media (prefers-reduced-motion: reduce) {
 
     *,
@@ -676,11 +803,18 @@ footer a:hover {
     }
 }
 
-/* Focus styles for keyboard navigation */
-button:focus-visible,
-input:focus-visible {
-    outline: 2px solid var(--color-accent-primary);
-    outline-offset: 2px;
+@media (prefers-contrast: high) {
+    :root {
+        --color-bg-primary: #000000;
+        --color-text-primary: #ffffff;
+        --color-accent-primary: #00ff00;
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    * {
+        opacity: 1 !important;
+    }
 }
 
 /* === CUSTOM SCROLLBAR === */
