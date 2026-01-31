@@ -4,8 +4,14 @@
 import { uintCV, cvToHex } from '@stacks/transactions';
 
 async function callContractFunction(contractAddress, contractName, functionName, args = []) {
+  // Get network from environment or default to mainnet
+  const network = process.env.NETWORK || 'mainnet';
+  const stacksApi = network === 'mainnet' 
+    ? 'https://api.hiro.so'
+    : 'https://api.testnet.hiro.so';
+  
   const response = await fetch(
-    `https://api.testnet.hiro.so/v2/contracts/call-read/${contractAddress}/${contractName}/${functionName}`,
+    `${stacksApi}/v2/contracts/call-read/${contractAddress}/${contractName}/${functionName}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -63,8 +69,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const contractAddress = process.env.CONTRACT_ADDRESS || 'ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ';
-    const contractName = process.env.CONTRACT_NAME || 'test2';
+    const contractAddress = process.env.CONTRACT_ADDRESS || 'SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909EZHVE9A';
+    const contractName = process.env.CONTRACT_NAME || 'voidmasks';
+    const network = process.env.NETWORK || 'mainnet';
     const tokenIdArg = cvToHex(uintCV(tokenId));
 
     // Get traits
@@ -86,6 +93,7 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json');
     res.status(200).json({
       tokenId,
+      network,
       contractAddress,
       contractName,
       traits: {
