@@ -13,7 +13,8 @@ let uiState = {
     totalSupply: 0,
     lastTokenId: 0,
     userTokens: [],
-    isLoading: false
+    isLoading: false,
+    currentAddress: null
 };
 
 // Initialize app
@@ -91,6 +92,17 @@ export function updateUIState(action, walletState = null) {
     const mintBtn = document.getElementById('mint-btn');
 
     if (action === 'connected' && walletState) {
+        // Check if address actually changed
+        const addressChanged = uiState.currentAddress !== walletState.address;
+        
+        if (addressChanged) {
+            console.log('Address changed from', uiState.currentAddress, 'to', walletState.address);
+            uiState.currentAddress = walletState.address;
+            
+            // Clear old tokens when address changes
+            uiState.userTokens = [];
+        }
+        
         // Hide connect button, show wallet info
         if (connectBtn) connectBtn.classList.add('hidden');
         if (walletInfo) walletInfo.classList.remove('hidden');
@@ -103,7 +115,7 @@ export function updateUIState(action, walletState = null) {
         // Enable mint button
         if (mintBtn) mintBtn.disabled = false;
 
-        // Load user's tokens
+        // Load user's tokens (will reload if address changed)
         loadUserTokens(walletState.address);
 
     } else if (action === 'disconnected') {
@@ -114,8 +126,9 @@ export function updateUIState(action, walletState = null) {
         // Disable mint button
         if (mintBtn) mintBtn.disabled = true;
 
-        // Clear user tokens
+        // Clear user tokens and address
         uiState.userTokens = [];
+        uiState.currentAddress = null;
         renderCollection();
     }
 }
@@ -137,7 +150,13 @@ async function refreshData() {
         // If wallet connected, refresh user tokens
         const wallet = getWalletState();
         if (wallet.isConnected) {
-            await loadUserTokens(wallet.address);
+            // Check if address changed (wallet switched account)
+            if (uiState.currentAddress !== wallet.address) {
+                console.log('Wallet address changed detected during refresh');
+                updateUIState('connected', wallet);
+            } else {
+                await loadUserTokens(wallet.address);
+            }
         }
     } catch (error) {
         console.error('Failed to refresh data:', error);
@@ -155,6 +174,12 @@ function updateSupplyDisplay() {
 
 // Load user's tokens
 async function loadUserTokens(address) {
+    // Don't reload if already loading for same address
+    if (uiState.isLoading) {
+        console.log('Already loading tokens, skipping...');
+        return;
+    }
+    
     try {
         showLoading(true);
         const tokens = await getTokensByOwner(address);
