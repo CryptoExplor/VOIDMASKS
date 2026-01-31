@@ -4,34 +4,31 @@
 // ========================================
 
 import { CONFIG, utils, toggleNetwork } from './config.js';
-import { getWalletState, executeMint, disconnectWallet } from './wallet.js';
-import { getTotalSupply, getTokensByOwner, getLastTokenId } from './contract.js';
+import { getWalletState, executeMint, disconnectWallet, initializeWallet } from './wallet.js';
+import { getTotalSupply, getTokensByOwner, getLastTokenId, getOwnerOfToken, callRead } from './contract.js';
 import { generateSVGFromTokenId, generatePreviewTokens } from './svg.js';
+import { hexToCV, cvToValue, uintCV, cvToHex } from '@stacks/transactions';
 
 // Global UI state
 let uiState = {
     totalSupply: 0,
     lastTokenId: 0,
     userTokens: [],
-    isLoading: false,
-    currentAddress: null
+    isLoading: false
 };
 
 // Initialize app
 export async function initializeApp() {
     console.log('Initializing VOIDMASKS UI...');
 
+    // Restore wallet session and start monitoring
+    initializeWallet();
+
     // Display network badge
     updateNetworkBadge();
 
     // Set up event listeners
     setupEventListeners();
-
-    // Check if wallet is connected and update UI
-    const wallet = getWalletState();
-    if (wallet.isConnected) {
-        updateUIState('connected', wallet);
-    }
 
     // Load initial data
     await refreshData();
@@ -92,17 +89,6 @@ export function updateUIState(action, walletState = null) {
     const mintBtn = document.getElementById('mint-btn');
 
     if (action === 'connected' && walletState) {
-        // Check if address actually changed
-        const addressChanged = uiState.currentAddress !== walletState.address;
-        
-        if (addressChanged) {
-            console.log('Address changed from', uiState.currentAddress, 'to', walletState.address);
-            uiState.currentAddress = walletState.address;
-            
-            // Clear old tokens when address changes
-            uiState.userTokens = [];
-        }
-        
         // Hide connect button, show wallet info
         if (connectBtn) connectBtn.classList.add('hidden');
         if (walletInfo) walletInfo.classList.remove('hidden');
@@ -115,7 +101,7 @@ export function updateUIState(action, walletState = null) {
         // Enable mint button
         if (mintBtn) mintBtn.disabled = false;
 
-        // Load user's tokens (will reload if address changed)
+        // Load user's tokens
         loadUserTokens(walletState.address);
 
     } else if (action === 'disconnected') {
@@ -126,9 +112,8 @@ export function updateUIState(action, walletState = null) {
         // Disable mint button
         if (mintBtn) mintBtn.disabled = true;
 
-        // Clear user tokens and address
+        // Clear user tokens
         uiState.userTokens = [];
-        uiState.currentAddress = null;
         renderCollection();
     }
 }
@@ -150,13 +135,7 @@ async function refreshData() {
         // If wallet connected, refresh user tokens
         const wallet = getWalletState();
         if (wallet.isConnected) {
-            // Check if address changed (wallet switched account)
-            if (uiState.currentAddress !== wallet.address) {
-                console.log('Wallet address changed detected during refresh');
-                updateUIState('connected', wallet);
-            } else {
-                await loadUserTokens(wallet.address);
-            }
+            await loadUserTokens(wallet.address);
         }
     } catch (error) {
         console.error('Failed to refresh data:', error);
@@ -174,12 +153,6 @@ function updateSupplyDisplay() {
 
 // Load user's tokens
 async function loadUserTokens(address) {
-    // Don't reload if already loading for same address
-    if (uiState.isLoading) {
-        console.log('Already loading tokens, skipping...');
-        return;
-    }
-    
     try {
         showLoading(true);
         const tokens = await getTokensByOwner(address);
@@ -190,6 +163,33 @@ async function loadUserTokens(address) {
         console.error('Failed to load user tokens:', error);
         showLoading(false);
     }
+}
+
+/**
+ * Attempt to get the on-chain SVG directly from the get-svg function.
+ * This bypasses get-token-uri which is now SIP-009 compliant (limited to 256 chars).
+ */
+async function getOnChainSVG(tokenId) {
+    try {
+        // Use proper CV helpers for the argument
+        const tokenHex = cvToHex(uintCV(tokenId));
+
+        const res = await callRead('get-svg', [tokenHex]);
+
+        if (res && res.result) {
+            if (res.result.startsWith('0x')) {
+                const clarityValue = hexToCV(res.result);
+                const value = cvToValue(clarityValue);
+                // The value might be a string or a more complex object depending on the API
+                return (typeof value === 'object' && value !== null && 'value' in value) ? value.value : value;
+            }
+            // Fallback for plain string responses
+            return res.result.replace(/^"(.*)"$/, '$1');
+        }
+    } catch (e) {
+        console.warn(`Could not fetch on-chain SVG for ${tokenId}, using local generator.`, e);
+    }
+    return null;
 }
 
 // Render user's collection
@@ -204,29 +204,27 @@ function renderCollection() {
 
     container.innerHTML = '';
 
-    uiState.userTokens.forEach(tokenId => {
-        // Fallback SVG data URI if API fails
-        const fallbackSvg = generateSVGFromTokenId(tokenId);
-        const fallbackDataUri = `data:image/svg+xml;base64,${btoa(fallbackSvg)}`;
-
+    uiState.userTokens.forEach(async tokenId => {
+        // Create skeleton/placeholder with local preview
         const tokenEl = document.createElement('div');
         tokenEl.className = 'token-card';
         tokenEl.innerHTML = `
-            <div class="token-svg">
-                <img src="/api/svg/${tokenId}" 
-                     alt="VOIDMASK ${tokenId}" 
-                     loading="lazy"
-                     onerror="this.onerror=null; this.src='${fallbackDataUri}'; this.classList.add('fallback');" />
-            </div>
+            <div class="token-svg">${generateSVGFromTokenId(tokenId)}</div>
             <div class="token-id">${utils.formatTokenId(tokenId)}</div>
         `;
+        container.appendChild(tokenEl);
+
+        // Try to replace with actual on-chain SVG
+        const onChainSvg = await getOnChainSVG(tokenId);
+        if (onChainSvg) {
+            const svgContainer = tokenEl.querySelector('.token-svg');
+            if (svgContainer) svgContainer.innerHTML = onChainSvg;
+        }
 
         // Click to view in explorer
         tokenEl.addEventListener('click', () => {
             viewToken(tokenId);
         });
-
-        container.appendChild(tokenEl);
     });
 }
 
@@ -287,26 +285,32 @@ function handleViewToken() {
 }
 
 // View specific token
-function viewToken(tokenId) {
+async function viewToken(tokenId) {
     const display = document.getElementById('token-display');
     if (!display) return;
 
-    // Fallback SVG data URI if API fails
-    const fallbackSvg = generateSVGFromTokenId(tokenId);
-    const fallbackDataUri = `data:image/svg+xml;base64,${btoa(fallbackSvg)}`;
-
+    // Show initial local version immediately
+    const localSvg = generateSVGFromTokenId(tokenId);
     display.innerHTML = `
         <div class="token-viewer">
             <h3>${utils.formatTokenId(tokenId)}</h3>
-            <div class="token-svg-large">
-                <img src="/api/svg/${tokenId}" 
-                     alt="VOIDMASK ${tokenId}" 
-                     onerror="this.onerror=null; this.src='${fallbackDataUri}'; this.classList.add('fallback');" />
-            </div>
+            <div class="token-svg-large">${localSvg}</div>
+            <div class="token-metadata-status">Loading on-chain metadata...</div>
         </div>
     `;
-
     display.classList.remove('hidden');
+
+    // Try to fetch on-chain version
+    const onChainSvg = await getOnChainSVG(tokenId);
+    if (onChainSvg) {
+        const largeContainer = display.querySelector('.token-svg-large');
+        const metaStatus = display.querySelector('.token-metadata-status');
+        if (largeContainer) largeContainer.innerHTML = onChainSvg;
+        if (metaStatus) metaStatus.textContent = 'Verified On-Chain Artwork';
+    } else {
+        const metaStatus = display.querySelector('.token-metadata-status');
+        if (metaStatus) metaStatus.textContent = 'Using Preview (Pending Indexer)';
+    }
 }
 
 // Show/hide loading state
