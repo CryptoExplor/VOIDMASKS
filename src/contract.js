@@ -187,6 +187,34 @@ export async function getTokenURI(tokenId) {
     }
 }
 
+export async function hasAlreadyMinted(address) {
+    try {
+        const res = await callRead('has-minted', [
+            cvToHex(standardPrincipalCV(address)),
+        ]);
+
+        // Handle hex response
+        if (res.result && res.result.startsWith('0x')) {
+            try {
+                const clarityValue = hexToCV(res.result);
+                const jsValue = cvToValue(clarityValue);
+                const flatValue = flattenCV(jsValue);
+                return flatValue === true;
+            } catch (error) {
+                console.error('Error parsing has-minted hex:', error);
+                return false;
+            }
+        }
+
+        // Handle text response: (ok true) or (ok false)
+        if (res.result.includes('true')) return true;
+        return false;
+    } catch (error) {
+        console.error(`Failed to check if address has minted:`, error);
+        return false;
+    }
+}
+
 // FIXED: Don't rely on get-balance, iterate through all tokens
 export async function getTokensByOwner(owner) {
     console.log('Fetching tokens for owner:', owner);
