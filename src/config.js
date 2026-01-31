@@ -11,9 +11,9 @@ const NETWORKS = {
     },
     mainnet: {
         NETWORK: 'mainnet',
-        CONTRACT_ADDRESS: 'SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909E3SDNQG', // Update with actual Mainnet address after deployment
+        CONTRACT_ADDRESS: 'SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909EZHVE9A', // Update with actual Mainnet address after deployment
         CONTRACT_NAME: 'voidmasks',
-        STACKS_API: 'https://api.mainnet.hiro.so',
+        STACKS_API: 'https://api.hiro.so',
         MINT_FEE: 0, // Free mint
         MIN_FEE_DISPLAY: 'Free'
     }
@@ -70,6 +70,7 @@ export const utils = {
         return `#${tokenId}`;
     }
 };
+
 
 
 
