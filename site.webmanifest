@@ -1,0 +1,81 @@
+{
+  "name": "VOIDMASKS - On-Chain NFT Collection",
+  "short_name": "VOIDMASKS",
+  "description": "100% on-chain schizocore PFP collection on Stacks blockchain",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#00ff88",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["entertainment", "art", "blockchain"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mint NFT",
+      "short_name": "Mint",
+      "description": "Mint a new VOIDMASK NFT",
+      "url": "/?action=mint",
+      "icons": [
+        {
+          "src": "/icon-mint.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "View Collection",
+      "short_name": "Gallery",
+      "description": "View your VOIDMASK collection",
+      "url": "/?action=gallery",
+      "icons": [
+        {
+          "src": "/icon-gallery.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
