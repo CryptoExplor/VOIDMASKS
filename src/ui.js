@@ -4,7 +4,7 @@
 // ========================================
 
 import { CONFIG, utils, toggleNetwork } from './config.js';
-import { getWalletState, executeMint, disconnectWallet, initializeWallet } from './wallet.js';
+import { getWalletState, executeMint, disconnectWallet, initializeWallet, setWalletChangeListener } from './wallet.js';
 import { getTotalSupply, getTokensByOwner, getLastTokenId, getOwnerOfToken, callRead } from './contract.js';
 import { generateSVGFromTokenId, generatePreviewTokens } from './svg.js';
 import { hexToCV, cvToValue, uintCV, cvToHex } from '@stacks/transactions';
@@ -14,12 +14,18 @@ let uiState = {
     totalSupply: 0,
     lastTokenId: 0,
     userTokens: [],
-    isLoading: false
+    isLoading: false,
+    currentAddress: null
 };
 
 // Initialize app
 export async function initializeApp() {
     console.log('Initializing VOIDMASKS UI...');
+
+    // Set up wallet change listener (avoids circular dependency)
+    setWalletChangeListener((action, state) => {
+        updateUIState(action, state);
+    });
 
     // Restore wallet session and start monitoring
     initializeWallet();
@@ -89,6 +95,17 @@ export function updateUIState(action, walletState = null) {
     const mintBtn = document.getElementById('mint-btn');
 
     if (action === 'connected' && walletState) {
+        // Check if address actually changed
+        const addressChanged = uiState.currentAddress !== walletState.address;
+
+        if (addressChanged) {
+            console.log('Address changed from', uiState.currentAddress, 'to', walletState.address);
+            uiState.currentAddress = walletState.address;
+
+            // Clear old tokens when address changes
+            uiState.userTokens = [];
+        }
+
         // Hide connect button, show wallet info
         if (connectBtn) connectBtn.classList.add('hidden');
         if (walletInfo) walletInfo.classList.remove('hidden');
@@ -112,8 +129,9 @@ export function updateUIState(action, walletState = null) {
         // Disable mint button
         if (mintBtn) mintBtn.disabled = true;
 
-        // Clear user tokens
+        // Clear user tokens and address
         uiState.userTokens = [];
+        uiState.currentAddress = null;
         renderCollection();
     }
 }
