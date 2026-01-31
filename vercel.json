@@ -11,13 +11,17 @@
       "destination": "/api/svg/[id].js"
     },
     {
+      "source": "/api/debug-svg/:id",
+      "destination": "/api/debug-svg/[id].js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
   "env": {
-    "NETWORK": "testnet",
-    "CONTRACT_ADDRESS": "ST1HCWN2BWA7HKY61AVPC0EKRB4TH84TMV26A4VRZ",
-    "CONTRACT_NAME": "test1"
+    "NETWORK": "mainnet",
+    "CONTRACT_ADDRESS": "SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909EZHVE9A",
+    "CONTRACT_NAME": "voidmasks"
   }
 }
