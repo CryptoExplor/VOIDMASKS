@@ -56,97 +56,64 @@ function clearWalletState() {
 }
 
 // ============================================
-// ADDRESS CHANGE DETECTION (on user action only)
+// ADDRESS CHANGE DETECTION (only during transactions)
 // ============================================
 
-let isCheckingAddress = false;
-let addressCheckPromise = null;
-
-async function checkForAddressChange() {
-    // Prevent concurrent checks
-    if (isCheckingAddress || !walletState.isConnected) {
-        return addressCheckPromise;
+async function verifyAddressBeforeTx() {
+    // Only verify address when user is about to sign a transaction
+    if (!walletState.isConnected) {
+        return false;
     }
 
-    isCheckingAddress = true;
-    addressCheckPromise = (async () => {
-        try {
-            let currentAddress = null;
+    try {
+        let currentAddress = null;
 
-            // Try to get current address from wallet
-            if (walletState.provider === 'leather' && window.LeatherProvider) {
-                try {
-                    const response = await window.LeatherProvider.request('getAddresses', {
-                        network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
-                    });
+        // Get current address from wallet without triggering signature requests
+        if (walletState.provider === 'leather' && window.LeatherProvider) {
+            try {
+                const response = await window.LeatherProvider.request('getAddresses', {
+                    network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+                });
 
-                    if (response.result && response.result.addresses) {
-                        const stacksAddress = response.result.addresses.find(
-                            addr => addr.type === 'stacks' || addr.symbol === 'STX'
-                        );
-                        currentAddress = stacksAddress ? stacksAddress.address : null;
-                    }
-                } catch (err) {
-                    console.debug('Could not check Leather address:', err.message);
+                if (response.result && response.result.addresses) {
+                    const stacksAddress = response.result.addresses.find(
+                        addr => addr.type === 'stacks' || addr.symbol === 'STX'
+                    );
+                    currentAddress = stacksAddress ? stacksAddress.address : null;
                 }
-            } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
-                try {
-                    const response = await window.XverseProviders.StacksProvider.request('getAddresses', {
-                        purposes: ['stacks'],
-                        message: 'Verify wallet address',
-                        network: {
-                            type: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
-                        }
-                    });
-
-                    if (response && response.addresses) {
-                        const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
-                        currentAddress = stacksAddr ? stacksAddr.address : null;
-                    }
-                } catch (err) {
-                    console.debug('Could not check Xverse address:', err.message);
-                }
+            } catch (err) {
+                console.debug('Could not verify Leather address:', err.message);
+                // If we can't verify, assume it's okay to proceed
+                return true;
             }
-
-            // If we got an address and it's different, disconnect
-            if (currentAddress && currentAddress !== walletState.address) {
-                console.log('⚠️ Wallet address changed!');
-                console.log('Expected:', walletState.address);
-                console.log('Current:', currentAddress);
-                console.log('🔌 Auto-disconnecting...');
-                
-                // Auto-disconnect
-                disconnectWallet();
-                
-                // Notify user
-                alert('Your wallet address has changed. Please reconnect your wallet.');
-            }
-        } catch (error) {
-            console.debug('Error checking address:', error);
-        } finally {
-            isCheckingAddress = false;
-            addressCheckPromise = null;
+        } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
+            // For Xverse, we'll rely on the transaction itself to fail if address is wrong
+            // since getAddresses requires user approval
+            console.debug('Xverse address verification skipped (requires user approval)');
+            return true;
         }
-    })();
 
-    return addressCheckPromise;
-}
-
-// Check address when user returns to tab (not on timer)
-function setupVisibilityListener() {
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && walletState.isConnected) {
-            console.log('👀 User returned - checking wallet address...');
-            // Small delay to avoid race conditions
-            setTimeout(async () => {
-                try {
-                    await checkForAddressChange();
-                } catch (error) {
-                    console.error('Error checking address on visibility change:', error);
-                }
-            }, 1000);
+        // If we got an address and it's different, reject transaction
+        if (currentAddress && currentAddress !== walletState.address) {
+            console.log('⚠️ Wallet address mismatch detected during transaction');
+            console.log('Expected:', walletState.address);
+            console.log('Current:', currentAddress);
+            
+            // Disconnect and notify
+            disconnectWallet();
+            throw new Error('Wallet address has changed. Please reconnect your wallet.');
         }
-    });
+
+        return true;
+    } catch (error) {
+        // If it's our custom error, rethrow it
+        if (error.message.includes('Wallet address has changed')) {
+            throw error;
+        }
+        // Otherwise, log and allow transaction to proceed
+        console.debug('Error verifying address:', error);
+        return true;
+    }
 }
 
 // ============================================
@@ -160,9 +127,6 @@ export function initializeWallet() {
         updateUIState('connected', walletState);
         console.log('✅ Restored wallet:', walletState.address);
     }
-    
-    // Set up visibility listener for address change detection
-    setupVisibilityListener();
 }
 
 // ============================================
@@ -320,6 +284,11 @@ export async function executeMint() {
         console.log('Wallet:', walletState.provider);
         console.log('Address:', walletState.address);
         console.log('Network:', CONFIG.NETWORK);
+
+        // Verify address before transaction (only for Leather)
+        if (walletState.provider === 'leather') {
+            await verifyAddressBeforeTx();
+        }
 
         // Parse contract
         let contractAddress, contractName;
