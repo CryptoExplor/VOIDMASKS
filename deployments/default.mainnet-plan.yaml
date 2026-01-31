@@ -1,0 +1,18 @@
+---
+id: 0
+name: Mainnet deployment
+network: mainnet
+stacks-node: "https://api.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoin.blockstack.com:8332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: voidmasks
+            expected-sender: SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909EZHVE9A
+            cost: 104500
+            path: contracts/voidmasks.clar
+            anchor-block-only: true
+            clarity-version: 4
+      epoch: "3.3"
