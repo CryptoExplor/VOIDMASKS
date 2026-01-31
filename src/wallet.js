@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
 
 // Address polling interval
 let addressCheckInterval = null;
+let isCheckingAddress = false; // Prevent concurrent checks
 
 // Load wallet state from localStorage
 function loadWalletState() {
@@ -57,38 +58,42 @@ function clearWalletState() {
     }
 }
 
-// Get current address from wallet
+// Get current address from wallet (NON-INTRUSIVE - no popups)
 async function getCurrentAddressFromWallet() {
+    // Prevent concurrent checks
+    if (isCheckingAddress) return null;
+    isCheckingAddress = true;
+    
     try {
         if (walletState.provider === 'leather' && window.LeatherProvider) {
-            const response = await window.LeatherProvider.request('getAddresses', {
-                network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
-            });
-            
-            if (response.result && response.result.addresses) {
-                const stacksAddress = response.result.addresses.find(
-                    addr => addr.type === 'stacks' || addr.symbol === 'STX'
-                );
-                return stacksAddress ? stacksAddress.address : null;
+            // Leather: Use stx_getAddresses instead of getAddresses to avoid popups
+            try {
+                const response = await window.LeatherProvider.request('stx_getAddresses');
+                
+                if (response && response.result && response.result.addresses) {
+                    const stacksAddress = response.result.addresses.find(
+                        addr => addr.type === 'stacks' || addr.symbol === 'STX'
+                    );
+                    return stacksAddress ? stacksAddress.address : null;
+                }
+            } catch (err) {
+                // If stx_getAddresses doesn't work, silently fail
+                console.debug('Could not get address silently:', err.message);
+                return null;
             }
         } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
-            const response = await window.XverseProviders.StacksProvider.request('getAddresses', {
-                purposes: ['stacks'],
-                message: 'Get current address',
-                network: {
-                    type: CONFIG.NETWORK === 'mainnet' ? 'Mainnet' : 'Testnet'
-                }
-            });
-            
-            if (response && response.addresses) {
-                const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
-                return stacksAddr ? stacksAddr.address : null;
-            }
+            // Xverse: Check if we can get address without prompting
+            // For now, return null to avoid popup spam
+            // Xverse doesn't have a silent way to check address changes
+            return null;
         }
     } catch (error) {
-        console.error('Error getting current address:', error);
+        console.debug('Error getting current address:', error);
         return null;
+    } finally {
+        isCheckingAddress = false;
     }
+    
     return null;
 }
 
@@ -98,6 +103,7 @@ async function checkAddressChange() {
     
     const currentAddress = await getCurrentAddressFromWallet();
     
+    // Only update if we got a valid address and it's different
     if (currentAddress && currentAddress !== walletState.address) {
         console.log('🔄 Address changed detected!');
         console.log('Old:', walletState.address);
@@ -112,18 +118,24 @@ async function checkAddressChange() {
     }
 }
 
-// Start polling for address changes
+// Start polling for address changes (Leather only, Xverse disabled to avoid popups)
 function startAddressPolling() {
     if (addressCheckInterval) {
         clearInterval(addressCheckInterval);
     }
     
-    console.log('📡 Starting address polling...');
+    // Only enable polling for Leather wallet
+    if (walletState.provider !== 'leather') {
+        console.log('⏸️  Address polling disabled for', walletState.provider);
+        return;
+    }
     
-    // Check every 3 seconds
+    console.log('📡 Starting address polling (Leather only)...');
+    
+    // Check every 5 seconds (reduced frequency to be less intrusive)
     addressCheckInterval = setInterval(() => {
         checkAddressChange();
-    }, 3000);
+    }, 5000);
 }
 
 // Stop polling for address changes
@@ -141,7 +153,7 @@ export function initializeWallet() {
     if (savedState && savedState.isConnected) {
         walletState = savedState;
         
-        // Start polling for address changes
+        // Start polling for address changes (Leather only)
         startAddressPolling();
         
         updateUIState('connected', walletState);
@@ -212,7 +224,7 @@ async function connectLeather() {
 
             saveWalletState();
             
-            // Start polling for address changes
+            // Start polling for address changes (Leather only)
             startAddressPolling();
             
             updateUIState('connected', walletState);
@@ -260,8 +272,9 @@ async function connectXverse() {
 
             saveWalletState();
             
-            // Start polling for address changes
-            startAddressPolling();
+            // Polling disabled for Xverse to avoid popups
+            console.log('⚠️  Note: Automatic address detection disabled for Xverse');
+            console.log('💡 Please reconnect if you switch accounts');
             
             updateUIState('connected', walletState);
             console.log(`Connected to Xverse wallet (${CONFIG.NETWORK}):`, address);
