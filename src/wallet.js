@@ -8,7 +8,8 @@ import { updateUIState } from './ui.js';
 let walletState = {
     isConnected: false,
     address: null,
-    provider: null
+    provider: null,
+    network: null
 };
 
 const STORAGE_KEY = 'voidmasks_wallet_state';
@@ -35,7 +36,12 @@ function loadWalletState() {
 
 function saveWalletState() {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(walletState));
+        // Ensure network is always saved
+        const stateToSave = {
+            ...walletState,
+            network: CONFIG.NETWORK
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     } catch (error) {
         console.error('Failed to save wallet state:', error);
     }
@@ -54,71 +60,76 @@ function clearWalletState() {
 // ============================================
 
 let isCheckingAddress = false;
+let addressCheckPromise = null;
 
 async function checkForAddressChange() {
-    // Only check once at a time
+    // Prevent concurrent checks
     if (isCheckingAddress || !walletState.isConnected) {
-        return;
+        return addressCheckPromise;
     }
 
     isCheckingAddress = true;
+    addressCheckPromise = (async () => {
+        try {
+            let currentAddress = null;
 
-    try {
-        let currentAddress = null;
+            // Try to get current address from wallet
+            if (walletState.provider === 'leather' && window.LeatherProvider) {
+                try {
+                    const response = await window.LeatherProvider.request('getAddresses', {
+                        network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+                    });
 
-        // Try to get current address from wallet
-        if (walletState.provider === 'leather' && window.LeatherProvider) {
-            try {
-                const response = await window.LeatherProvider.request('getAddresses', {
-                    network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
-                });
-
-                if (response.result && response.result.addresses) {
-                    const stacksAddress = response.result.addresses.find(
-                        addr => addr.type === 'stacks' || addr.symbol === 'STX'
-                    );
-                    currentAddress = stacksAddress ? stacksAddress.address : null;
-                }
-            } catch (err) {
-                console.debug('Could not check Leather address:', err.message);
-            }
-        } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
-            try {
-                const response = await window.XverseProviders.StacksProvider.request('getAddresses', {
-                    purposes: ['stacks'],
-                    message: 'Verify wallet address',
-                    network: {
-                        type: CONFIG.NETWORK === 'mainnet' ? 'Mainnet' : 'Testnet'
+                    if (response.result && response.result.addresses) {
+                        const stacksAddress = response.result.addresses.find(
+                            addr => addr.type === 'stacks' || addr.symbol === 'STX'
+                        );
+                        currentAddress = stacksAddress ? stacksAddress.address : null;
                     }
-                });
-
-                if (response && response.addresses) {
-                    const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
-                    currentAddress = stacksAddr ? stacksAddr.address : null;
+                } catch (err) {
+                    console.debug('Could not check Leather address:', err.message);
                 }
-            } catch (err) {
-                console.debug('Could not check Xverse address:', err.message);
-            }
-        }
+            } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
+                try {
+                    const response = await window.XverseProviders.StacksProvider.request('getAddresses', {
+                        purposes: ['stacks'],
+                        message: 'Verify wallet address',
+                        network: {
+                            type: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+                        }
+                    });
 
-        // If we got an address and it's different, disconnect
-        if (currentAddress && currentAddress !== walletState.address) {
-            console.log('⚠️ Wallet address changed!');
-            console.log('Expected:', walletState.address);
-            console.log('Current:', currentAddress);
-            console.log('🔌 Auto-disconnecting...');
-            
-            // Auto-disconnect
-            disconnectWallet();
-            
-            // Notify user
-            alert('Your wallet address has changed. Please reconnect your wallet.');
+                    if (response && response.addresses) {
+                        const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
+                        currentAddress = stacksAddr ? stacksAddr.address : null;
+                    }
+                } catch (err) {
+                    console.debug('Could not check Xverse address:', err.message);
+                }
+            }
+
+            // If we got an address and it's different, disconnect
+            if (currentAddress && currentAddress !== walletState.address) {
+                console.log('⚠️ Wallet address changed!');
+                console.log('Expected:', walletState.address);
+                console.log('Current:', currentAddress);
+                console.log('🔌 Auto-disconnecting...');
+                
+                // Auto-disconnect
+                disconnectWallet();
+                
+                // Notify user
+                alert('Your wallet address has changed. Please reconnect your wallet.');
+            }
+        } catch (error) {
+            console.debug('Error checking address:', error);
+        } finally {
+            isCheckingAddress = false;
+            addressCheckPromise = null;
         }
-    } catch (error) {
-        console.debug('Error checking address:', error);
-    } finally {
-        isCheckingAddress = false;
-    }
+    })();
+
+    return addressCheckPromise;
 }
 
 // Check address when user returns to tab (not on timer)
@@ -127,8 +138,12 @@ function setupVisibilityListener() {
         if (document.visibilityState === 'visible' && walletState.isConnected) {
             console.log('👀 User returned - checking wallet address...');
             // Small delay to avoid race conditions
-            setTimeout(() => {
-                checkForAddressChange();
+            setTimeout(async () => {
+                try {
+                    await checkForAddressChange();
+                } catch (error) {
+                    console.error('Error checking address on visibility change:', error);
+                }
             }, 1000);
         }
     });
@@ -155,13 +170,20 @@ export function initializeWallet() {
 // ============================================
 
 export function isWalletInstalled(walletType) {
-    switch (walletType) {
-        case 'leather':
-            return typeof window.LeatherProvider !== 'undefined';
-        case 'xverse':
-            return typeof window.XverseProviders !== 'undefined';
-        default:
-            return false;
+    try {
+        switch (walletType) {
+            case 'leather':
+                return typeof window.LeatherProvider !== 'undefined' && 
+                       typeof window.LeatherProvider.request === 'function';
+            case 'xverse':
+                return typeof window.XverseProviders?.StacksProvider !== 'undefined' &&
+                       typeof window.XverseProviders.StacksProvider.request === 'function';
+            default:
+                return false;
+        }
+    } catch (error) {
+        console.error('Error checking wallet installation:', error);
+        return false;
     }
 }
 
@@ -232,7 +254,7 @@ async function connectXverse() {
             purposes: ['stacks'],
             message: 'Connect to VOIDMASKS',
             network: {
-                type: CONFIG.NETWORK === 'mainnet' ? 'Mainnet' : 'Testnet'
+                type: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
             }
         });
 
@@ -267,7 +289,8 @@ export function disconnectWallet() {
     walletState = {
         isConnected: false,
         address: null,
-        provider: null
+        provider: null,
+        network: null
     };
 
     clearWalletState();
@@ -347,7 +370,7 @@ async function signWithLeather(contractAddress, contractName) {
             contract: contractId,
             functionName: 'mint',
             functionArgs: [],
-            network: CONFIG.NETWORK,
+            network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
         });
 
         if (result && result.error) {
@@ -358,7 +381,12 @@ async function signWithLeather(contractAddress, contractName) {
             throw new Error('No response from Leather');
         }
 
-        const txId = result.result.txId || result.result.txid || result.result;
+        // Extract transaction ID with strict validation
+        const txId = result.result.txId || result.result.txid;
+        if (!txId || typeof txId !== 'string') {
+            throw new Error('Invalid transaction ID format from Leather');
+        }
+        
         return txId;
     } catch (error) {
         if (error.message?.toLowerCase().includes('reject') || 
@@ -388,7 +416,12 @@ async function signWithXverse(contractAddress, contractName) {
             throw new Error('No response from Xverse');
         }
 
-        const txId = result.result.txid || result.result.txId || result.result;
+        // Extract transaction ID with strict validation
+        const txId = result.result.txid || result.result.txId;
+        if (!txId || typeof txId !== 'string') {
+            throw new Error('Invalid transaction ID format from Xverse');
+        }
+        
         return txId;
     } catch (error) {
         if (error.message?.toLowerCase().includes('reject') || 
@@ -404,5 +437,6 @@ async function signWithXverse(contractAddress, contractName) {
 // ============================================
 
 export async function signTransaction() {
-    throw new Error('Deprecated. Use executeMint() instead.');
+    console.warn('⚠️ signTransaction() is deprecated. Use executeMint() instead.');
+    return executeMint();
 }
