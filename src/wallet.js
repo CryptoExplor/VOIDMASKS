@@ -13,7 +13,6 @@ let walletState = {
 };
 
 const STORAGE_KEY = 'voidmasks_wallet_state';
-let monitorInterval = null;
 
 // ============================================
 // PERSISTENCE (localStorage)
@@ -57,71 +56,97 @@ function clearWalletState() {
 }
 
 // ============================================
-// BACKGROUND ADDRESS MONITORING
+// ADDRESS CHANGE DETECTION (on user action only)
 // ============================================
 
-async function checkAddressInBackground() {
-    if (!walletState.isConnected) {
-        return;
+let isCheckingAddress = false;
+let addressCheckPromise = null;
+
+async function checkForAddressChange() {
+    // Prevent concurrent checks
+    if (isCheckingAddress || !walletState.isConnected) {
+        return addressCheckPromise;
     }
 
-    try {
-        let currentAddress = null;
+    isCheckingAddress = true;
+    addressCheckPromise = (async () => {
+        try {
+            let currentAddress = null;
 
-        // Get current address from wallet
-        if (walletState.provider === 'leather' && window.LeatherProvider) {
-            try {
-                const response = await window.LeatherProvider.request('getAddresses', {
-                    network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
-                });
+            // Try to get current address from wallet
+            if (walletState.provider === 'leather' && window.LeatherProvider) {
+                try {
+                    const response = await window.LeatherProvider.request('getAddresses', {
+                        network: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+                    });
 
-                if (response.result && response.result.addresses) {
-                    const stacksAddress = response.result.addresses.find(
-                        addr => addr.type === 'stacks' || addr.symbol === 'STX'
-                    );
-                    currentAddress = stacksAddress ? stacksAddress.address : null;
+                    if (response.result && response.result.addresses) {
+                        const stacksAddress = response.result.addresses.find(
+                            addr => addr.type === 'stacks' || addr.symbol === 'STX'
+                        );
+                        currentAddress = stacksAddress ? stacksAddress.address : null;
+                    }
+                } catch (err) {
+                    console.debug('Could not check Leather address:', err.message);
                 }
-            } catch (err) {
-                // Silently fail - wallet might be locked or unavailable
-                return;
+            } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
+                try {
+                    const response = await window.XverseProviders.StacksProvider.request('getAddresses', {
+                        purposes: ['stacks'],
+                        message: 'Verify wallet address',
+                        network: {
+                            type: CONFIG.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+                        }
+                    });
+
+                    if (response && response.addresses) {
+                        const stacksAddr = response.addresses.find(addr => addr.purpose === 'stacks');
+                        currentAddress = stacksAddr ? stacksAddr.address : null;
+                    }
+                } catch (err) {
+                    console.debug('Could not check Xverse address:', err.message);
+                }
             }
-        } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
-            // For Xverse, we can't check without user approval, so skip
-            return;
-        }
 
-        // If address changed, silently disconnect
-        if (currentAddress && currentAddress !== walletState.address) {
-            console.log('🔄 Wallet address changed - disconnecting silently');
-            console.log('Previous:', walletState.address);
-            console.log('Current:', currentAddress);
-            stopAddressMonitoring();
-            disconnectWallet();
+            // If we got an address and it's different, disconnect
+            if (currentAddress && currentAddress !== walletState.address) {
+                console.log('⚠️ Wallet address changed!');
+                console.log('Expected:', walletState.address);
+                console.log('Current:', currentAddress);
+                console.log('🔌 Auto-disconnecting...');
+                
+                // Auto-disconnect
+                disconnectWallet();
+                
+                // Notify user
+                alert('Your wallet address has changed. Please reconnect your wallet.');
+            }
+        } catch (error) {
+            console.debug('Error checking address:', error);
+        } finally {
+            isCheckingAddress = false;
+            addressCheckPromise = null;
         }
-    } catch (error) {
-        // Silently fail - don't disrupt user experience
-        console.debug('Background check error:', error);
-    }
+    })();
+
+    return addressCheckPromise;
 }
 
-function startAddressMonitoring() {
-    // Clear any existing interval
-    stopAddressMonitoring();
-    
-    // Only monitor for Leather (Xverse requires user approval)
-    if (walletState.provider === 'leather') {
-        // Check every 5 seconds
-        monitorInterval = setInterval(checkAddressInBackground, 5000);
-        console.log('🔍 Started address monitoring (every 5s)');
-    }
-}
-
-function stopAddressMonitoring() {
-    if (monitorInterval) {
-        clearInterval(monitorInterval);
-        monitorInterval = null;
-        console.log('⏹️ Stopped address monitoring');
-    }
+// Check address when user returns to tab (not on timer)
+function setupVisibilityListener() {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && walletState.isConnected) {
+            console.log('👀 User returned - checking wallet address...');
+            // Small delay to avoid race conditions
+            setTimeout(async () => {
+                try {
+                    await checkForAddressChange();
+                } catch (error) {
+                    console.error('Error checking address on visibility change:', error);
+                }
+            }, 1000);
+        }
+    });
 }
 
 // ============================================
@@ -134,10 +159,10 @@ export function initializeWallet() {
         walletState = savedState;
         updateUIState('connected', walletState);
         console.log('✅ Restored wallet:', walletState.address);
-        
-        // Start monitoring for address changes
-        startAddressMonitoring();
     }
+    
+    // Set up visibility listener for address change detection
+    setupVisibilityListener();
 }
 
 // ============================================
@@ -210,10 +235,6 @@ async function connectLeather() {
 
             saveWalletState();
             updateUIState('connected', walletState);
-            
-            // Start monitoring for address changes
-            startAddressMonitoring();
-            
             console.log('✅ Connected (Leather):', stacksAddress.address);
         }
     } catch (error) {
@@ -253,9 +274,6 @@ async function connectXverse() {
 
             saveWalletState();
             updateUIState('connected', walletState);
-            
-            // Note: Don't start monitoring for Xverse (requires user approval)
-            
             console.log('✅ Connected (Xverse):', stacksAddr.address);
         }
     } catch (error) {
@@ -268,9 +286,6 @@ async function connectXverse() {
 // ============================================
 
 export function disconnectWallet() {
-    // Stop monitoring
-    stopAddressMonitoring();
-    
     walletState = {
         isConnected: false,
         address: null,
