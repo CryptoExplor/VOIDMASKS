@@ -1,0 +1,14 @@
+[network]
+name = "mainnet"
+
+# IMPORTANT: Add your mainnet wallet mnemonic here
+# Generate a mainnet wallet from Hiro Wallet or Leather and paste the 24-word mnemonic
+# NEVER commit this file with your actual mnemonic to a public repository
+[accounts.deployer]
+mnemonic = "YOUR_24_WORD_MNEMONIC_HERE"
+balance = 100_000_000_000_000
+
+# Example additional accounts for testing
+[accounts.wallet_1]
+mnemonic = "ANOTHER_24_WORD_MNEMONIC_HERE"
+balance = 100_000_000_000_000
