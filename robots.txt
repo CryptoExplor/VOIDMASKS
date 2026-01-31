@@ -1,0 +1,21 @@
+# robots.txt for VOIDMASKS
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://voidmasks.vercel.app/sitemap.xml
+
+# Block unnecessary crawling
+Disallow: /api/
+Disallow: *.js$
+Disallow: *.css$
+
+# Allow specific crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
