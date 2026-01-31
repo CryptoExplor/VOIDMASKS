@@ -13,6 +13,7 @@ let walletState = {
 };
 
 const STORAGE_KEY = 'voidmasks_wallet_state';
+let monitorInterval = null;
 
 // ============================================
 // PERSISTENCE (localStorage)
@@ -56,19 +57,18 @@ function clearWalletState() {
 }
 
 // ============================================
-// ADDRESS CHANGE DETECTION (only during transactions)
+// BACKGROUND ADDRESS MONITORING
 // ============================================
 
-async function verifyAddressBeforeTx() {
-    // Only verify address when user is about to sign a transaction
+async function checkAddressInBackground() {
     if (!walletState.isConnected) {
-        return false;
+        return;
     }
 
     try {
         let currentAddress = null;
 
-        // Get current address from wallet without triggering signature requests
+        // Get current address from wallet
         if (walletState.provider === 'leather' && window.LeatherProvider) {
             try {
                 const response = await window.LeatherProvider.request('getAddresses', {
@@ -82,37 +82,45 @@ async function verifyAddressBeforeTx() {
                     currentAddress = stacksAddress ? stacksAddress.address : null;
                 }
             } catch (err) {
-                console.debug('Could not verify Leather address:', err.message);
-                // If we can't verify, assume it's okay to proceed
-                return true;
+                // Silently fail - wallet might be locked or unavailable
+                return;
             }
         } else if (walletState.provider === 'xverse' && window.XverseProviders?.StacksProvider) {
-            // For Xverse, we'll rely on the transaction itself to fail if address is wrong
-            // since getAddresses requires user approval
-            console.debug('Xverse address verification skipped (requires user approval)');
-            return true;
+            // For Xverse, we can't check without user approval, so skip
+            return;
         }
 
-        // If we got an address and it's different, reject transaction
+        // If address changed, silently disconnect
         if (currentAddress && currentAddress !== walletState.address) {
-            console.log('⚠️ Wallet address mismatch detected during transaction');
-            console.log('Expected:', walletState.address);
+            console.log('🔄 Wallet address changed - disconnecting silently');
+            console.log('Previous:', walletState.address);
             console.log('Current:', currentAddress);
-            
-            // Disconnect and notify
+            stopAddressMonitoring();
             disconnectWallet();
-            throw new Error('Wallet address has changed. Please reconnect your wallet.');
         }
-
-        return true;
     } catch (error) {
-        // If it's our custom error, rethrow it
-        if (error.message.includes('Wallet address has changed')) {
-            throw error;
-        }
-        // Otherwise, log and allow transaction to proceed
-        console.debug('Error verifying address:', error);
-        return true;
+        // Silently fail - don't disrupt user experience
+        console.debug('Background check error:', error);
+    }
+}
+
+function startAddressMonitoring() {
+    // Clear any existing interval
+    stopAddressMonitoring();
+    
+    // Only monitor for Leather (Xverse requires user approval)
+    if (walletState.provider === 'leather') {
+        // Check every 5 seconds
+        monitorInterval = setInterval(checkAddressInBackground, 5000);
+        console.log('🔍 Started address monitoring (every 5s)');
+    }
+}
+
+function stopAddressMonitoring() {
+    if (monitorInterval) {
+        clearInterval(monitorInterval);
+        monitorInterval = null;
+        console.log('⏹️ Stopped address monitoring');
     }
 }
 
@@ -126,6 +134,9 @@ export function initializeWallet() {
         walletState = savedState;
         updateUIState('connected', walletState);
         console.log('✅ Restored wallet:', walletState.address);
+        
+        // Start monitoring for address changes
+        startAddressMonitoring();
     }
 }
 
@@ -199,6 +210,10 @@ async function connectLeather() {
 
             saveWalletState();
             updateUIState('connected', walletState);
+            
+            // Start monitoring for address changes
+            startAddressMonitoring();
+            
             console.log('✅ Connected (Leather):', stacksAddress.address);
         }
     } catch (error) {
@@ -238,6 +253,9 @@ async function connectXverse() {
 
             saveWalletState();
             updateUIState('connected', walletState);
+            
+            // Note: Don't start monitoring for Xverse (requires user approval)
+            
             console.log('✅ Connected (Xverse):', stacksAddr.address);
         }
     } catch (error) {
@@ -250,6 +268,9 @@ async function connectXverse() {
 // ============================================
 
 export function disconnectWallet() {
+    // Stop monitoring
+    stopAddressMonitoring();
+    
     walletState = {
         isConnected: false,
         address: null,
@@ -284,11 +305,6 @@ export async function executeMint() {
         console.log('Wallet:', walletState.provider);
         console.log('Address:', walletState.address);
         console.log('Network:', CONFIG.NETWORK);
-
-        // Verify address before transaction (only for Leather)
-        if (walletState.provider === 'leather') {
-            await verifyAddressBeforeTx();
-        }
 
         // Parse contract
         let contractAddress, contractName;
