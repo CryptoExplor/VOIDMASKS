@@ -5,7 +5,7 @@
 
 import { CONFIG, utils, toggleNetwork } from './config.js';
 import { getWalletState, executeMint, disconnectWallet } from './wallet.js';
-import { getTotalSupply, getTokensByOwner, getLastTokenId } from './contract.js';
+import { getTotalSupply, getTokensByOwner, getLastTokenId, hasAlreadyMinted } from './contract.js';
 import { generateSVGFromTokenId, generatePreviewTokens } from './svg.js';
 
 // Global UI state
@@ -14,7 +14,8 @@ let uiState = {
     lastTokenId: 0,
     userTokens: [],
     isLoading: false,
-    currentAddress: null
+    currentAddress: null,
+    hasMinted: false
 };
 
 // Initialize app
@@ -85,7 +86,7 @@ async function handleNetworkSwitch() {
 }
 
 // Update UI based on wallet state
-export function updateUIState(action, walletState = null) {
+export async function updateUIState(action, walletState = null) {
     const connectBtn = document.getElementById('connect-wallet');
     const walletInfo = document.getElementById('wallet-info');
     const walletAddress = document.getElementById('wallet-address');
@@ -101,6 +102,7 @@ export function updateUIState(action, walletState = null) {
             
             // Clear old tokens when address changes
             uiState.userTokens = [];
+            uiState.hasMinted = false;
         }
         
         // Hide connect button, show wallet info
@@ -112,8 +114,31 @@ export function updateUIState(action, walletState = null) {
             walletAddress.textContent = utils.truncateAddress(walletState.address);
         }
 
-        // Enable mint button
-        if (mintBtn) mintBtn.disabled = false;
+        // Check if user has already minted
+        try {
+            const alreadyMinted = await hasAlreadyMinted(walletState.address);
+            uiState.hasMinted = alreadyMinted;
+            console.log('Has already minted:', alreadyMinted);
+            
+            // Update mint button state
+            if (mintBtn) {
+                if (alreadyMinted) {
+                    mintBtn.disabled = true;
+                    mintBtn.textContent = 'Already Minted';
+                    mintBtn.title = 'You have already minted your NFT (one per address)';
+                } else {
+                    mintBtn.disabled = false;
+                    mintBtn.textContent = 'Mint NFT';
+                    mintBtn.title = 'Mint your VOIDMASK NFT';
+                }
+            }
+        } catch (error) {
+            console.error('Error checking mint status:', error);
+            // Enable button on error to allow retry
+            if (mintBtn) {
+                mintBtn.disabled = false;
+            }
+        }
 
         // Load user's tokens (will reload if address changed)
         loadUserTokens(walletState.address);
@@ -124,11 +149,16 @@ export function updateUIState(action, walletState = null) {
         if (walletInfo) walletInfo.classList.add('hidden');
 
         // Disable mint button
-        if (mintBtn) mintBtn.disabled = true;
+        if (mintBtn) {
+            mintBtn.disabled = true;
+            mintBtn.textContent = 'Mint NFT';
+            mintBtn.title = 'Connect wallet to mint';
+        }
 
         // Clear user tokens and address
         uiState.userTokens = [];
         uiState.currentAddress = null;
+        uiState.hasMinted = false;
         renderCollection();
     }
 }
@@ -153,7 +183,7 @@ async function refreshData() {
             // Check if address changed (wallet switched account)
             if (uiState.currentAddress !== wallet.address) {
                 console.log('Wallet address changed detected during refresh');
-                updateUIState('connected', wallet);
+                await updateUIState('connected', wallet);
             } else {
                 await loadUserTokens(wallet.address);
             }
@@ -240,6 +270,12 @@ async function handleMint() {
         return;
     }
 
+    // Double-check if already minted
+    if (uiState.hasMinted) {
+        alert('You have already minted your VOIDMASK NFT (one per address)');
+        return;
+    }
+
     try {
         // Disable button and show loading
         if (mintBtn) {
@@ -253,6 +289,16 @@ async function handleMint() {
         if (result.success) {
             alert(`Mint successful! Transaction ID: ${result.txId.substring(0, 10)}...`);
 
+            // Mark as minted immediately
+            uiState.hasMinted = true;
+            
+            // Update mint button to permanently disabled state
+            if (mintBtn) {
+                mintBtn.disabled = true;
+                mintBtn.textContent = 'Already Minted';
+                mintBtn.title = 'You have already minted your NFT (one per address)';
+            }
+
             // Refresh data after short delay
             setTimeout(() => {
                 refreshData();
@@ -262,9 +308,9 @@ async function handleMint() {
     } catch (error) {
         console.error('Mint failed:', error);
         alert(`Mint failed: ${error.message}`);
-    } finally {
-        // Re-enable button
-        if (mintBtn) {
+        
+        // Re-enable button only if user hasn't minted yet
+        if (mintBtn && !uiState.hasMinted) {
             mintBtn.disabled = false;
             mintBtn.textContent = 'Mint NFT';
         }
