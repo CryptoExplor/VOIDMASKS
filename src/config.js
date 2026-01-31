@@ -11,7 +11,7 @@ const NETWORKS = {
     },
     mainnet: {
         NETWORK: 'mainnet',
-        CONTRACT_ADDRESS: 'SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909EZHVE9A', // Update with actual Mainnet address after deployment
+        CONTRACT_ADDRESS: 'SP3ZQXJPR493FCYNAVFX1YSK7EMT6JF909EZHVE9A',
         CONTRACT_NAME: 'voidmasks',
         STACKS_API: 'https://api.hiro.so',
         MINT_FEE: 0, // Free mint
@@ -19,9 +19,9 @@ const NETWORKS = {
     }
 };
 
-// Current active configuration (starts with testnet)
+// Current active configuration (starts with mainnet)
 export const CONFIG = {
-    ...NETWORKS.testnet,
+    ...NETWORKS.mainnet,
 
     // Static settings
     GAS_LIMIT: 10000000,
@@ -70,11 +70,3 @@ export const utils = {
         return `#${tokenId}`;
     }
 };
-
-
-
-
-
-
-
-
