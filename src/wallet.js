@@ -1,5 +1,4 @@
 import { CONFIG, utils } from './config.js';
-import { updateUIState } from './ui.js';
 import { STACKS_MAINNET, STACKS_TESTNET } from '@stacks/network';
 import {
     AnchorMode,
@@ -12,6 +11,18 @@ let walletState = {
     address: null,
     provider: null
 };
+
+// Change listener
+let walletChangeListener = null;
+export function setWalletChangeListener(callback) {
+    walletChangeListener = callback;
+}
+
+function notifyWalletChange(action) {
+    if (walletChangeListener) {
+        walletChangeListener(action, { ...walletState });
+    }
+}
 
 // Monitor for address changes
 let monitorInterval = null;
@@ -92,7 +103,7 @@ function startAddressMonitor() {
                 console.log(`Wallet address change detected: ${walletState.address} -> ${freshAddress}`);
                 walletState.address = freshAddress;
                 saveWalletState();
-                updateUIState('connected', walletState);
+                notifyWalletChange('connected');
             }
         } catch (error) {
             // Silently fail, extension might be locked or busy
@@ -114,7 +125,7 @@ export function initializeWallet() {
     const savedState = loadWalletState();
     if (savedState && savedState.isConnected) {
         walletState = savedState;
-        updateUIState('connected', walletState);
+        notifyWalletChange('connected');
         console.log('Restored wallet connection:', walletState.address);
         startAddressMonitor();
     }
@@ -182,7 +193,7 @@ async function connectLeather() {
             };
 
             saveWalletState();
-            updateUIState('connected', walletState);
+            notifyWalletChange('connected');
             startAddressMonitor();
             console.log(`Connected to Leather wallet (${CONFIG.NETWORK}):`, address);
         }
@@ -227,7 +238,7 @@ async function connectXverse() {
             };
 
             saveWalletState();
-            updateUIState('connected', walletState);
+            notifyWalletChange('connected');
 
             // Set up event listener for Xverse if supported
             if (provider.on) {
@@ -236,7 +247,7 @@ async function connectXverse() {
                         console.log('Xverse account changed (event):', newAddress);
                         walletState.address = newAddress;
                         saveWalletState();
-                        updateUIState('connected', walletState);
+                        notifyWalletChange('connected');
                     }
                 });
             }
@@ -259,7 +270,7 @@ export function disconnectWallet() {
 
     stopAddressMonitor();
     clearWalletState();
-    updateUIState('disconnected');
+    notifyWalletChange('disconnected');
     console.log('Wallet disconnected');
 }
 
