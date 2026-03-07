@@ -6,8 +6,9 @@
 import { CONFIG, utils, toggleNetwork } from './config.js';
 import { getWalletState, executeMint, disconnectWallet } from './wallet.js';
 import { getTotalSupply, getTokensByOwner, getLastTokenId, hasAlreadyMinted } from './contract.js';
-import { generateSVGFromTokenId } from './svg.js';
+import { generateSVGFromTokenId, generatePreviewTokens } from './svg.js';
 
+// Global UI state
 let uiState = {
     totalSupply: 0,
     lastTokenId: 0,
@@ -17,61 +18,74 @@ let uiState = {
     hasMinted: false
 };
 
-// NEW: Custom Toast Notification System
-export function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-
-    container.appendChild(toast);
-
-    // Remove toast after 4 seconds
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
-}
-
+// Initialize app
 export async function initializeApp() {
+    console.log('Initializing VOIDMASKS UI...');
+
+    // Display network badge
     updateNetworkBadge();
+
+    // Set up event listeners
     setupEventListeners();
 
-    const wallet = getWalletState();
-    if (wallet.isConnected) updateUIState('connected', wallet);
-
-    await refreshData();
-    setInterval(refreshData, CONFIG.REFRESH_INTERVAL);
-}
-
-function setupEventListeners() {
-    const mintBtn = document.getElementById('mint-btn');
-    if (mintBtn) mintBtn.addEventListener('click', handleMint);
-
-    const viewTokenBtn = document.getElementById('view-token-btn');
-    if (viewTokenBtn) viewTokenBtn.addEventListener('click', handleViewToken);
-
-    const networkBadge = document.getElementById('network-badge');
-    if (networkBadge) networkBadge.addEventListener('click', handleNetworkSwitch);
-}
-
-async function handleNetworkSwitch() {
+    // Check if wallet is connected and update UI
     const wallet = getWalletState();
     if (wallet.isConnected) {
-        disconnectWallet();
-        showToast('Wallet disconnected due to network switch', 'info');
+        updateUIState('connected', wallet);
     }
 
-    const newNetwork = toggleNetwork();
-    updateNetworkBadge();
+    // Load initial data
     await refreshData();
-    showToast(`Switched to ${newNetwork}`, 'success');
+
+    // Set up periodic refresh
+    setInterval(refreshData, CONFIG.REFRESH_INTERVAL);
+
+    console.log('VOIDMASKS UI initialized');
 }
 
+// Set up all event listeners
+function setupEventListeners() {
+    // Mint button
+    const mintBtn = document.getElementById('mint-btn');
+    if (mintBtn) {
+        mintBtn.addEventListener('click', handleMint);
+    }
+
+    // Token explorer
+    const viewTokenBtn = document.getElementById('view-token-btn');
+    if (viewTokenBtn) {
+        viewTokenBtn.addEventListener('click', handleViewToken);
+    }
+
+    // Network switch
+    const networkBadge = document.getElementById('network-badge');
+    if (networkBadge) {
+        networkBadge.addEventListener('click', handleNetworkSwitch);
+    }
+}
+
+// Handle network switch
+async function handleNetworkSwitch() {
+    const wallet = getWalletState();
+
+    // If wallet is connected, disconnect first
+    if (wallet.isConnected) {
+        const confirmed = confirm('Switching networks will disconnect your wallet. Continue?');
+        if (!confirmed) return;
+
+        disconnectWallet();
+    }
+
+    // Toggle network
+    const newNetwork = toggleNetwork();
+    console.log(`Switched to ${newNetwork}`);
+
+    // Update UI
+    updateNetworkBadge();
+    await refreshData();
+}
+
+// Update UI based on wallet state
 export async function updateUIState(action, walletState = null) {
     const connectBtn = document.getElementById('connect-wallet');
     const walletInfo = document.getElementById('wallet-info');
@@ -79,44 +93,69 @@ export async function updateUIState(action, walletState = null) {
     const mintBtn = document.getElementById('mint-btn');
 
     if (action === 'connected' && walletState) {
-        if (uiState.currentAddress !== walletState.address) {
+        // Check if address actually changed
+        const addressChanged = uiState.currentAddress !== walletState.address;
+        
+        if (addressChanged) {
+            console.log('Address changed from', uiState.currentAddress, 'to', walletState.address);
             uiState.currentAddress = walletState.address;
+            
+            // Clear old tokens when address changes
             uiState.userTokens = [];
             uiState.hasMinted = false;
         }
         
+        // Hide connect button, show wallet info
         if (connectBtn) connectBtn.classList.add('hidden');
         if (walletInfo) walletInfo.classList.remove('hidden');
-        if (walletAddress) walletAddress.textContent = utils.truncateAddress(walletState.address);
 
+        // Display wallet address
+        if (walletAddress) {
+            walletAddress.textContent = utils.truncateAddress(walletState.address);
+        }
+
+        // Check if user has already minted
         try {
             const alreadyMinted = await hasAlreadyMinted(walletState.address);
             uiState.hasMinted = alreadyMinted;
+            console.log('Has already minted:', alreadyMinted);
             
+            // Update mint button state
             if (mintBtn) {
                 if (alreadyMinted) {
                     mintBtn.disabled = true;
                     mintBtn.textContent = 'Already Minted';
+                    mintBtn.title = 'You have already minted your NFT (one per address)';
                 } else {
                     mintBtn.disabled = false;
                     mintBtn.textContent = 'Mint NFT';
+                    mintBtn.title = 'Mint your VOIDMASK NFT';
                 }
             }
         } catch (error) {
-            if (mintBtn) mintBtn.disabled = false;
+            console.error('Error checking mint status:', error);
+            // Enable button on error to allow retry
+            if (mintBtn) {
+                mintBtn.disabled = false;
+            }
         }
 
+        // Load user's tokens (will reload if address changed)
         loadUserTokens(walletState.address);
 
     } else if (action === 'disconnected') {
+        // Show connect button, hide wallet info
         if (connectBtn) connectBtn.classList.remove('hidden');
         if (walletInfo) walletInfo.classList.add('hidden');
 
+        // Disable mint button
         if (mintBtn) {
             mintBtn.disabled = true;
             mintBtn.textContent = 'Mint NFT';
+            mintBtn.title = 'Connect wallet to mint';
         }
 
+        // Clear user tokens and address
         uiState.userTokens = [];
         uiState.currentAddress = null;
         uiState.hasMinted = false;
@@ -124,15 +163,26 @@ export async function updateUIState(action, walletState = null) {
     }
 }
 
+// Refresh all data
 async function refreshData() {
     try {
-        uiState.totalSupply = await getTotalSupply();
-        uiState.lastTokenId = await getLastTokenId();
+        // Get total supply
+        const supply = await getTotalSupply();
+        uiState.totalSupply = supply;
+
+        // Get last token ID
+        const lastId = await getLastTokenId();
+        uiState.lastTokenId = lastId;
+
+        // Update UI
         updateSupplyDisplay();
 
+        // If wallet connected, refresh user tokens
         const wallet = getWalletState();
         if (wallet.isConnected) {
+            // Check if address changed (wallet switched account)
             if (uiState.currentAddress !== wallet.address) {
+                console.log('Wallet address changed detected during refresh');
                 await updateUIState('connected', wallet);
             } else {
                 await loadUserTokens(wallet.address);
@@ -143,34 +193,36 @@ async function refreshData() {
     }
 }
 
-// UPDATED: Fill progress bar based on supply
+// Update supply display
 function updateSupplyDisplay() {
+    // Update any supply indicators in UI
     const supplyElements = document.querySelectorAll('.supply-count');
     supplyElements.forEach(el => {
         el.textContent = `${uiState.totalSupply} / 10000`;
     });
-
-    const progressBar = document.getElementById('supply-progress');
-    if (progressBar) {
-        // Calculate percentage (max 10,000)
-        const percentage = Math.min((uiState.totalSupply / 10000) * 100, 100);
-        progressBar.style.width = `${percentage}%`;
-    }
 }
 
+// Load user's tokens
 async function loadUserTokens(address) {
-    if (uiState.isLoading) return;
+    // Don't reload if already loading for same address
+    if (uiState.isLoading) {
+        console.log('Already loading tokens, skipping...');
+        return;
+    }
+    
     try {
-        uiState.isLoading = true;
-        uiState.userTokens = await getTokensByOwner(address);
+        showLoading(true);
+        const tokens = await getTokensByOwner(address);
+        uiState.userTokens = tokens;
         renderCollection();
+        showLoading(false);
     } catch (error) {
         console.error('Failed to load user tokens:', error);
-    } finally {
-        uiState.isLoading = false;
+        showLoading(false);
     }
 }
 
+// Render user's collection
 function renderCollection() {
     const container = document.getElementById('collection-container');
     if (!container) return;
@@ -181,7 +233,9 @@ function renderCollection() {
     }
 
     container.innerHTML = '';
+
     uiState.userTokens.forEach(tokenId => {
+        // Fallback SVG data URI if API fails
         const fallbackSvg = generateSVGFromTokenId(tokenId);
         const fallbackDataUri = `data:image/svg+xml;base64,${btoa(fallbackSvg)}`;
 
@@ -189,51 +243,73 @@ function renderCollection() {
         tokenEl.className = 'token-card';
         tokenEl.innerHTML = `
             <div class="token-svg">
-                <img src="/api/svg/${tokenId}" alt="VOIDMASK ${tokenId}" loading="lazy" onerror="this.src='${fallbackDataUri}';" />
+                <img src="/api/svg/${tokenId}" 
+                     alt="VOIDMASK ${tokenId}" 
+                     loading="lazy"
+                     onerror="this.onerror=null; this.src='${fallbackDataUri}'; this.classList.add('fallback');" />
             </div>
             <div class="token-id">${utils.formatTokenId(tokenId)}</div>
         `;
-        tokenEl.addEventListener('click', () => viewToken(tokenId));
+
+        // Click to view in explorer
+        tokenEl.addEventListener('click', () => {
+            viewToken(tokenId);
+        });
+
         container.appendChild(tokenEl);
     });
 }
 
-// UPDATED: Replaced alert() with showToast()
+// Handle mint button click
 async function handleMint() {
     const mintBtn = document.getElementById('mint-btn');
     const wallet = getWalletState();
 
     if (!wallet.isConnected) {
-        showToast('Please connect your wallet first', 'error');
+        alert('Please connect your wallet first');
         return;
     }
 
+    // Double-check if already minted
     if (uiState.hasMinted) {
-        showToast('You have already minted your VOIDMASK', 'error');
+        alert('You have already minted your VOIDMASK NFT (one per address)');
         return;
     }
 
     try {
+        // Disable button and show loading
         if (mintBtn) {
             mintBtn.disabled = true;
             mintBtn.textContent = 'Minting...';
         }
 
+        // Execute mint
         const result = await executeMint();
 
         if (result.success) {
-            showToast(`Mint successful! TX ID: ${result.txId.substring(0, 8)}...`, 'success');
+            alert(`Mint successful! Transaction ID: ${result.txId.substring(0, 10)}...`);
+
+            // Mark as minted immediately
             uiState.hasMinted = true;
             
+            // Update mint button to permanently disabled state
             if (mintBtn) {
                 mintBtn.disabled = true;
                 mintBtn.textContent = 'Already Minted';
+                mintBtn.title = 'You have already minted your NFT (one per address)';
             }
-            setTimeout(refreshData, 5000);
+
+            // Refresh data after short delay
+            setTimeout(() => {
+                refreshData();
+            }, 5000);
         }
 
     } catch (error) {
-        showToast(`Mint failed: ${error.message}`, 'error');
+        console.error('Mint failed:', error);
+        alert(`Mint failed: ${error.message}`);
+        
+        // Re-enable button only if user hasn't minted yet
         if (mintBtn && !uiState.hasMinted) {
             mintBtn.disabled = false;
             mintBtn.textContent = 'Mint NFT';
@@ -241,20 +317,27 @@ async function handleMint() {
     }
 }
 
+// Handle view token button click
 function handleViewToken() {
     const input = document.getElementById('token-id-input');
     if (!input) return;
+
     const tokenId = parseInt(input.value);
+
     if (isNaN(tokenId) || tokenId < 1) {
-        showToast('Please enter a valid token ID', 'error');
+        alert('Please enter a valid token ID');
         return;
     }
+
     viewToken(tokenId);
 }
 
+// View specific token
 function viewToken(tokenId) {
     const display = document.getElementById('token-display');
     if (!display) return;
+
+    // Fallback SVG data URI if API fails
     const fallbackSvg = generateSVGFromTokenId(tokenId);
     const fallbackDataUri = `data:image/svg+xml;base64,${btoa(fallbackSvg)}`;
 
@@ -262,20 +345,59 @@ function viewToken(tokenId) {
         <div class="token-viewer">
             <h3>${utils.formatTokenId(tokenId)}</h3>
             <div class="token-svg-large">
-                <img src="/api/svg/${tokenId}" alt="VOIDMASK ${tokenId}" onerror="this.src='${fallbackDataUri}';" />
+                <img src="/api/svg/${tokenId}" 
+                     alt="VOIDMASK ${tokenId}" 
+                     onerror="this.onerror=null; this.src='${fallbackDataUri}'; this.classList.add('fallback');" />
             </div>
         </div>
     `;
+
     display.classList.remove('hidden');
 }
 
+// Show/hide loading state
+function showLoading(isLoading) {
+    uiState.isLoading = isLoading;
+
+    // Update loading indicators
+    const loadingElements = document.querySelectorAll('.loading-indicator');
+    loadingElements.forEach(el => {
+        if (isLoading) {
+            el.classList.remove('hidden');
+        } else {
+            el.classList.add('hidden');
+        }
+    });
+}
+
+// Export state for debugging
+export function getUIState() {
+    return { ...uiState };
+}
+
+// Update network badge
 function updateNetworkBadge() {
     const badge = document.getElementById('network-badge');
     if (!badge) return;
 
     const network = CONFIG.NETWORK;
     badge.innerHTML = network === 'mainnet' ? '🟢 Mainnet ⇄' : '🟠 Testnet ⇄';
-    
+    badge.className = `network-badge ${network}`;
+    badge.title = `Currently on ${network}. Click to switch.`;
+
+    // Handle Faucet Link Visibility in Header
+    const faucetLink = document.getElementById('faucet-link');
+    if (faucetLink) {
+        if (network === 'testnet') {
+            faucetLink.classList.remove('hidden');
+        } else {
+            faucetLink.classList.add('hidden');
+        }
+    }
+
+    // Update Mint Price Display
     const priceDisplay = document.getElementById('mint-price');
-    if (priceDisplay) priceDisplay.textContent = CONFIG.MIN_FEE_DISPLAY;
+    if (priceDisplay) {
+        priceDisplay.textContent = CONFIG.MIN_FEE_DISPLAY;
+    }
 }
