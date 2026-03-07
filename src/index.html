@@ -4,126 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="talentapp:project_verification" content="768e20f3980501f291d0a90128ee1868ab10b5c5b43f37417e1829c3754a0d585f408d2710d6a2ea345a8e21970f19abecd1f2dbad0694ee6fde4565036f364a">
     <title>VOIDMASKS - 100% On-Chain Schizocore NFTs on Stacks</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="Phase-8 schizocore PFP collection with 100% on-chain SVG generation. Built with Clarity 4 on Stacks, secured by Bitcoin. Deterministic artwork, no IPFS, pure mathematics.">
-    <meta name="keywords" content="NFT, stacks, bitcoin, on-chain, schizocore, clarity4, web3, generative art, SVG, PFP, SIP-009, blockchain art, deterministic NFT">
-    <meta name="author" content="CryptoExplor">
-    <meta name="robots" content="index, follow">
+    <meta name="description" content="Phase-8 schizocore PFP collection with 100% on-chain SVG generation. Built with Clarity 4 on Stacks.">
     
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://voidmasks.vercel.app">
-    <meta property="og:title" content="VOIDMASKS - 100% On-Chain Schizocore NFTs">
-    <meta property="og:description" content="Fully on-chain generative NFT collection on Stacks. Each VOIDMASK is generated deterministically using Clarity 4 smart contracts. No IPFS. Pure mathematics.">
-    <meta property="og:image" content="https://voidmasks.vercel.app/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:site_name" content="VOIDMASKS">
-    
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://voidmasks.vercel.app">
-    <meta name="twitter:title" content="VOIDMASKS - 100% On-Chain Schizocore NFTs">
-    <meta name="twitter:description" content="Phase-8 schizocore PFP collection. 100% on-chain SVG generation on Stacks, secured by Bitcoin.">
-    <meta name="twitter:image" content="https://voidmasks.vercel.app/og-image.png">
-    <meta name="twitter:creator" content="@CryptoExplor">
-    
-    <!-- PWA Support -->
-    <meta name="theme-color" content="#00ff88">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="VOIDMASKS">
-    <meta name="mobile-web-app-capable" content="yes">
-    
-    <!-- Favicon & App Icons -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
-    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#00ff88">
-    
-    <!-- Preconnect to External Domains for Performance -->
-    <link rel="preconnect" href="https://api.hiro.so">
-    <link rel="preconnect" href="https://api.testnet.hiro.so">
-    <link rel="dns-prefetch" href="https://api.hiro.so">
-    <link rel="dns-prefetch" href="https://api.testnet.hiro.so">
-    
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://voidmasks.vercel.app">
-    
-    <!-- Styles -->
     <link rel="stylesheet" href="styles.css">
-    
-    <!-- Structured Data (JSON-LD) for SEO -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "VOIDMASKS",
-        "description": "100% on-chain schizocore NFT collection on Stacks blockchain. Each mask is generated fully on-chain using deterministic Clarity logic.",
-        "url": "https://voidmasks.vercel.app",
-        "applicationCategory": "Entertainment",
-        "operatingSystem": "Any",
-        "browserRequirements": "Requires JavaScript. Works with Leather or Xverse wallet.",
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "STX",
-            "description": "Free mint - one per address"
-        },
-        "author": {
-            "@type": "Person",
-            "name": "CryptoExplor"
-        },
-        "creator": {
-            "@type": "Person",
-            "name": "CryptoExplor"
-        },
-        "screenshot": "https://voidmasks.vercel.app/screenshot.png",
-        "featureList": [
-            "SIP-009 Compliant NFTs",
-            "100% On-Chain SVG Generation",
-            "No IPFS Dependencies",
-            "Deterministic Art from Token ID",
-            "Free Mint (One Per Address)",
-            "Wallet Integration (Leather & Xverse)",
-            "Brutalist Schizocore Design"
-        ]
-    }
-    </script>
-    
-    <!-- Additional Structured Data for NFT Collection -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "CreativeWork",
-        "name": "VOIDMASKS NFT Collection",
-        "description": "A collection of 10,000 unique on-chain generated masks",
-        "creator": {
-            "@type": "Person",
-            "name": "CryptoExplor"
-        },
-        "license": "https://opensource.org/licenses/MIT",
-        "genre": "Digital Art",
-        "keywords": "NFT, generative art, blockchain, Stacks, Bitcoin"
-    }
-    </script>
 </head>
 
 <body>
     <div class="container">
         <header>
             <h1>_VOIDmasks_</h1>
-            <p class="subtitle"> on-chain NFT collection with <span class="clarity-highlight">Clarity 4</span>
-            </p>
+            <p class="subtitle"> on-chain NFT collection with <span class="clarity-highlight">Clarity 4</span></p>
             <div class="network-controls">
                 <button id="network-badge" class="network-badge" title="Click to switch network"></button>
-                <a id="faucet-link" href="https://stacks-jar.vercel.app" target="_blank" rel="noopener noreferrer" class="faucet-link hidden">🚰
-                    Faucet</a>
+                <a id="faucet-link" href="https://stacks-jar.vercel.app" target="_blank" rel="noopener noreferrer" class="faucet-link hidden">🚰 Faucet</a>
             </div>
         </header>
 
@@ -137,6 +34,15 @@
 
         <div class="mint-section">
             <h2>Mint Your Mask</h2>
+            
+            <!-- NEW: Progress Bar -->
+            <div class="mint-stats">
+                <div class="mint-progress-bg">
+                    <div id="supply-progress" class="mint-progress-fill"></div>
+                </div>
+                <p class="supply-text"><span class="supply-count">0 / 10000</span> Minted</p>
+            </div>
+
             <button id="mint-btn" class="btn-mint" disabled>Mint NFT</button>
             <p class="price-info">Cost: <span id="mint-price">Free</span></p>
             <p class="mint-info">One free mint per address • 10,000 max supply</p>
@@ -161,23 +67,14 @@
         </div>
 
         <footer>
-            <p>
-                Built on <strong>Stacks</strong> • Secured by <strong>Bitcoin</strong><br>
-                Enhanced with <strong>Clarity 4</strong>
-            </p>
-            <p>
-                <a href="https://github.com/CryptoExplor/VOIDMASKS" target="_blank" rel="noopener noreferrer">GitHub</a> •
-                <a href="https://docs.stacks.co" target="_blank" rel="noopener noreferrer">Stacks Docs</a> •
-                <a href="https://stacks.co/" target="_blank" rel="noopener noreferrer">Stacks.co</a>
-            </p>
-            <p class="copyright">
-                © 2026 CryptoExplor • <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">MIT License</a>
-            </p>
+            <p>Built on <strong>Stacks</strong> • Secured by <strong>Bitcoin</strong></p>
         </footer>
     </div>
+
+    <!-- NEW: Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script type="module" src="main.js"></script>
 </body>
 
 </html>
-
